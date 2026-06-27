@@ -1,0 +1,28 @@
+# Disposable local dev Postgres. Provider-agnostic: this is just stock Postgres,
+# reachable via the plain DATABASE_URL in .env — no cloud vendor involved.
+#
+#   docker compose up -d        # start
+#   docker compose down -v      # stop and wipe (it's disposable)
+#
+# Credentials/db/port match .env.example's DATABASE_URL so the same connection
+# string works whether the DB is this container or a local native Postgres.
+services:
+  db:
+    image: postgres:16
+    container_name: bridging-ops-db
+    environment:
+      POSTGRES_USER: bridging_ops
+      POSTGRES_PASSWORD: bridging_ops
+      POSTGRES_DB: bridging_ops_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - bridging_ops_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bridging_ops -d bridging_ops_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  bridging_ops_pgdata:

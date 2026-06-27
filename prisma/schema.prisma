@@ -1,0 +1,645 @@
+// =============================================================================
+// Bridging Generations — Phase 2 Operational Schema (canonical, migration-ready)
+// PostgreSQL + Prisma. This is the source of truth for FACTS, MONEY, and PII.
+// The public Next.js + Keystatic site is a SEPARATE store (narrative) and only
+// ever receives a one-way, consent-filtered projection (see PUBLIC_PROJECTION.md).
+//
+// Key decisions encoded here:
+//   * Identity is split: `User` = login/auth; Donor/Mentor/Student = profiles
+//     that may exist WITHOUT a login (guest donor, admin/mentor-created student).
+//   * Approval workflow: User.status and Student.status both carry PENDING; every
+//     join path (student self-signup, mentor-registered student, donor signup)
+//     funnels into the same admin queue. Admin-created records auto-approve.
+//   * Money is INTEGER MINOR UNITS + ISO currency. Never floats.
+//   * CURRENCY (v1): USD-ONLY. The `currency` columns are retained for forward
+//     compatibility, but the boundary REJECTS any non-USD write, and every
+//     computed aggregate (fundingRaised, totalRaised, …) ASSUMES a single
+//     currency — minor units are summed directly and must not mix currencies.
+//   * Stripe-sourced donations are written by webhook and their financial fields
+//     are treated as IMMUTABLE in the service layer. Manual/cash/legacy rows are
+//     admin-editable. Corrections are posted as adjustment rows, never silent edits.
+//   * Webhook idempotency is event-level: every Stripe event is recorded in
+//     `StripeEvent` (eventId @unique) before processing and skipped if already seen.
+//   * Refunds: `Donation.refundedAmount` (minor units) holds refunded value.
+//     Full refund => refundedAmount == amount AND status = REFUNDED; partial
+//     refund => refundedAmount < amount AND status stays SUCCEEDED. Public totals
+//     subtract refundedAmount, never the whole row.
+//   * Recurring sponsorships via Stripe Subscriptions; each cycle creates a Donation.
+//   * Tax receipts as a first-class entity (US 501(c)(3)).
+//   * Legacy/offline data: source = LEGACY/CASH/etc. + isHistorical (suppresses
+//     automations) but still counts toward computed public totals.
+//   * Mentor access is row-scoped via MentorAssignment — enforced in the data layer.
+//   * Project.fundingRaised / donor counts / totals are COMPUTED, never stored.
+//   * Public slugs: Student.slug and Project.slug are unique, generated from a
+//     human name + short random suffix, and IMMUTABLE once set. Student.slug is
+//     null until the record is APPROVED (assigned at approval).
+//   * `Session` (Auth.js web session) is distinct from `AcademicSession` (term).
+//   * Some invariants Prisma can't express in-schema are enforced in the service
+//     layer AND added as raw SQL in the migration: (a) a partial UNIQUE index on
+//     AcademicSession(isCurrent) WHERE isCurrent = true; (b) a CHECK constraint on
+//     Donation/Subscription tying designationType to studentId/projectId.
+// =============================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  MENTOR
+  DONOR
+  STUDENT
+}
+
+enum AccountStatus {
+  PENDING // awaiting admin approval
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum RecordStatus {
+  DRAFT
+  PENDING // awaiting admin approval (e.g. mentor-registered student)
+  ACTIVE
+  ARCHIVED
+}
+
+enum ConsentStatus {
+  PENDING
+  GRANTED
+  DENIED
+  REVOKED
+}
+
+enum ConsentScope {
+  WEBSITE
+  PRINT
+  SOCIAL
+}
+
+enum DonationSource {
+  STRIPE // written by webhook; financial fields immutable
+  CASH // admin-entered offline
+  CHECK
+  BANK
+  LEGACY // imported from the old website / historical
+  OTHER
+}
+
+enum DonationStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  VOIDED
+}
+
+enum DesignationType {
+  STUDENT
+  PROJECT
+  GENERAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  UNPAID
+}
+
+enum ProjectStatus {
+  ACTIVE
+  FUNDED
+  PAUSED
+}
+
+enum ContactMethod {
+  MOBILE
+  EMAIL
+  WHATSAPP
+  IN_PERSON
+  OTHER
+}
+
+enum ReceiptStatus {
+  DRAFT
+  ISSUED
+  SENT
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// IDENTITY / AUTH
+// `User` is the login. Role-specific profiles hang off it. Note that audit-ish
+// FK fields (reviewedById, createdById, actorUserId) are stored as scalar user
+// ids to avoid a forest of self-relations; they reference User.id logically.
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String?
+  role          Role          @default(DONOR)
+  status        AccountStatus @default(PENDING)
+  emailVerified DateTime?
+  image         String?
+  // scrypt hash for email+password login (PRIMARY auth). Null = no password set
+  // (magic-link-only / OAuth-only user). A SECRET: never projected, never logged,
+  // never leaves the operational store.
+  passwordHash  String?
+
+  // approval audit (reviewedById references a User.id of an admin)
+  reviewedById String?
+  reviewedAt   DateTime?
+
+  // role profiles (1-1, optional — a User has exactly one of these by role)
+  donor   Donor?
+  mentor  Mentor?
+  student Student?
+
+  // Auth.js adapter relations
+  accounts Account[]
+  sessions Session[]
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([role])
+}
+
+// Auth.js (NextAuth) Prisma adapter models — WEB sessions, not academic terms.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// DONOR (giving identity — guest-capable: userId is nullable)
+// ---------------------------------------------------------------------------
+
+model Donor {
+  id     String  @id @default(cuid())
+  userId String? @unique // null = guest donor (no login); match to account later by verified email
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  name        String
+  email       String?
+  country     String?
+  phone       String?
+  isAnonymous Boolean @default(false) // controls public thank-you wall display
+  wallMessage String? // optional message for the donor wall
+  wallTier    String? // '', founder, patron, friend (mirrors existing site)
+
+  donations     Donation[]
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// MENTOR (always has a login; sees ONLY assigned students)
+// ---------------------------------------------------------------------------
+
+model Mentor {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  phone String?
+  bio   String?
+
+  assignments MentorAssignment[]
+  evaluations StudentEvaluation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// SCHOOL
+// ---------------------------------------------------------------------------
+
+model School {
+  id              String  @id @default(cuid())
+  name            String
+  slug            String  @unique
+  location        String?
+  description     String?
+  establishedYear Int?
+  heroImageUrl    String?
+
+  students        Student[]
+  studentSessions StudentSession[]
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// STUDENT (the sponsored person record — full PII; login optional)
+// ---------------------------------------------------------------------------
+
+model Student {
+  id     String       @id @default(cuid())
+  userId String?      @unique // null = admin/mentor-managed record with no login
+  user   User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status RecordStatus @default(PENDING)
+
+  // public-safe
+  // Stable public key. Null until APPROVED; generated then from firstName + a
+  // short random suffix (e.g. "rima-x7q2"), unique, and IMMUTABLE once set.
+  // This is the key a Keystatic story uses to reference an operational student.
+  slug       String?   @unique
+  firstName  String
+  // PII (never leaves the operational store)
+  fullName   String?
+  fatherName String?
+  motherName String?
+  dob        DateTime?
+  community  String?
+  gender     String?
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  bio         String?
+  quote       String?
+  portraitUrl String?
+
+  // consent (mirrors the existing Keystatic model so the bridge maps 1:1)
+  portraitConsent  ConsentStatus  @default(PENDING)
+  storyConsent     ConsentStatus  @default(PENDING)
+  consentScopes    ConsentScope[]
+  consentSignedAt  DateTime?
+  releaseFormId    String?
+  consentRevokable Boolean        @default(true)
+  consentRevokedAt DateTime?
+
+  enrolledAt   DateTime?
+  isHistorical Boolean   @default(false) // imported from old site
+
+  // creation/approval audit (ids reference User.id)
+  createdById  String?
+  reviewedById String?
+  reviewedAt   DateTime?
+
+  sessions      StudentSession[]
+  evaluations   StudentEvaluation[]
+  assignments   MentorAssignment[]
+  donations     Donation[]
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([schoolId])
+}
+
+// ---------------------------------------------------------------------------
+// ACADEMIC SESSION (term/year) + per-session enrollment
+// ---------------------------------------------------------------------------
+
+model AcademicSession {
+  id        String    @id @default(cuid())
+  label     String    @unique // e.g. "2024-2025"
+  startDate DateTime?
+  endDate   DateTime?
+  // At most one row may have isCurrent = true. Enforced in the service layer AND
+  // by a partial UNIQUE index added in the migration SQL:
+  //   CREATE UNIQUE INDEX "academic_session_one_current"
+  //     ON "AcademicSession" ((isCurrent)) WHERE "isCurrent" = true;
+  // (Prisma can't express a partial unique index in-schema.)
+  isCurrent Boolean   @default(false)
+  remarks   String?
+
+  studentSessions StudentSession[]
+  assignments     MentorAssignment[]
+  evaluations     StudentEvaluation[]
+  donations       Donation[]
+  // NOTE: no `subscriptions` back-relation. A recurring Subscription is a
+  // donor-scoped, ongoing commitment that spans terms; per-cycle attribution to
+  // a session lives on each Donation.sessionId, not on the Subscription.
+  createdAt       DateTime            @default(now())
+}
+
+model StudentSession {
+  id        String @id @default(cuid())
+  studentId String
+  sessionId String
+
+  student Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  grade        String? // class
+  roll         String?
+  amountNeeded Int? // funding need for this student this session, in MINOR UNITS
+  currency     String       @default("USD")
+  status       RecordStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, sessionId])
+  @@index([sessionId])
+}
+
+// ---------------------------------------------------------------------------
+// MENTOR ASSIGNMENT (governs row-level access: a mentor may read a student
+// ONLY when an active assignment exists). Scoped per session.
+// ---------------------------------------------------------------------------
+
+model MentorAssignment {
+  id        String @id @default(cuid())
+  mentorId  String
+  studentId String
+  sessionId String
+
+  mentor  Mentor          @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  student Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  assignedById String? // admin User.id
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+  active       Boolean   @default(true)
+
+  @@unique([mentorId, studentId, sessionId])
+  @@index([studentId, active])
+  @@index([mentorId, active])
+}
+
+// ---------------------------------------------------------------------------
+// STUDENT EVALUATION (mentor-authored; access-scoped)
+// ---------------------------------------------------------------------------
+
+model StudentEvaluation {
+  id        String  @id @default(cuid())
+  studentId String
+  sessionId String?
+  mentorId  String
+
+  student Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session AcademicSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  mentor  Mentor           @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+
+  evaluationType String?
+  date           DateTime       @default(now())
+  contactPerson  String?
+  contactBy      ContactMethod?
+  remarks        String?
+  fileUrl        String?
+  publishConsent Boolean        @default(false) // may this surface publicly?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([mentorId])
+}
+
+// ---------------------------------------------------------------------------
+// PROJECT (fundingRaised is COMPUTED from succeeded donations — not stored)
+// ---------------------------------------------------------------------------
+
+model Project {
+  id             String        @id @default(cuid())
+  title          String
+  // Generated from title + short random suffix, validated unique, immutable once
+  // set (same convention as Student.slug). Required at creation (projects are
+  // admin-created and public immediately, so there is no PENDING slug-less state).
+  slug           String        @unique
+  summary        String?
+  body           String?
+  fundingGoal    Int // minor units
+  currency       String        @default("USD")
+  status         ProjectStatus @default(ACTIVE)
+  boardOwnerName String?
+  displayOrder   Int?
+  heroImageUrl   String?
+  lastUpdated    DateTime?
+
+  donations     Donation[]
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// DONATION (unified ledger: online Stripe rows + offline/legacy admin rows)
+// ---------------------------------------------------------------------------
+
+model Donation {
+  id      String @id @default(cuid())
+  donorId String
+  donor   Donor  @relation(fields: [donorId], references: [id])
+
+  // Invariant (Zod/service + raw-SQL CHECK in migration):
+  //   STUDENT => studentId set,  projectId null
+  //   PROJECT => projectId set,  studentId null
+  //   GENERAL => studentId null, projectId null
+  designationType DesignationType
+  studentId       String?
+  projectId       String?
+  sessionId       String?
+
+  student Student?         @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  project Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  session AcademicSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  amount    Int // MINOR UNITS
+  currency  String         @default("USD") // v1: USD only, rejected at the boundary otherwise
+  feeAmount Int? // processor fee (minor units), Stripe rows only
+  netAmount Int? // amount - fee (Stripe-reported balance fact, not a public aggregate)
+  source    DonationSource
+  status    DonationStatus @default(PENDING)
+
+  // Refunded value in MINOR UNITS. 0 = not refunded. Partial refund:
+  // 0 < refundedAmount < amount, status stays SUCCEEDED. Full refund:
+  // refundedAmount == amount, status = REFUNDED. Public totals use
+  // (amount - refundedAmount) for SUCCEEDED rows.
+  refundedAmount Int @default(0)
+
+  // Stripe linkage (immutable once set; webhook-written)
+  stripePaymentIntentId String? @unique
+  stripeChargeId        String?
+  idempotencyKey        String? @unique
+
+  isRecurring    Boolean       @default(false)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  isHistorical Boolean  @default(false) // legacy/backfill — suppresses automations
+  occurredAt   DateTime // the gift date (historical date for legacy rows)
+  note         String?
+
+  // manual-entry / correction audit
+  createdById  String? // admin User.id for offline/legacy rows
+  voidedById   String?
+  voidedReason String?
+  voidedAt     DateTime?
+
+  // adjustment chain (post a correction instead of editing a settled row)
+  correctionOfId String?
+  correctionOf   Donation?  @relation("Corrections", fields: [correctionOfId], references: [id])
+  corrections    Donation[] @relation("Corrections")
+
+  receipt Receipt?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([donorId])
+  @@index([studentId])
+  @@index([projectId])
+  @@index([status])
+  @@index([source])
+  @@index([occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// SUBSCRIPTION (recurring sponsorship via Stripe; each cycle -> a Donation)
+// ---------------------------------------------------------------------------
+
+model Subscription {
+  id      String @id @default(cuid())
+  donorId String
+  donor   Donor  @relation(fields: [donorId], references: [id])
+
+  stripeSubscriptionId String? @unique
+
+  status          SubscriptionStatus @default(ACTIVE)
+  // Same designation invariant as Donation (Zod/service + raw-SQL CHECK):
+  //   STUDENT => studentId set/projectId null; PROJECT => projectId set/studentId
+  //   null; GENERAL => both null.
+  designationType DesignationType
+  studentId       String?
+  projectId       String?
+
+  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  amount   Int // per-cycle, minor units
+  currency String @default("USD")
+  interval String @default("month")
+
+  currentPeriodEnd DateTime?
+  canceledAt       DateTime?
+
+  donations Donation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([donorId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// RECEIPT (501(c)(3) acknowledgment; one per settled donation)
+// ---------------------------------------------------------------------------
+
+model Receipt {
+  id         String   @id @default(cuid())
+  donationId String   @unique
+  donation   Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+
+  receiptNumber String        @unique
+  issuedAt      DateTime?
+  amount        Int
+  currency      String        @default("USD")
+  donorName     String?
+  donorEmail    String?
+  pdfUrl        String?
+  sentAt        DateTime?
+  status        ReceiptStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// STRIPE EVENT LEDGER (event-level webhook idempotency). Every incoming Stripe
+// event is recorded here (after signature verification) BEFORE its side effects
+// run; a replayed event whose id already exists is acknowledged and skipped.
+// Donation/Subscription rows keep their own @unique keys as a second guard.
+// ---------------------------------------------------------------------------
+
+model StripeEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique // Stripe event.id (evt_…)
+  type        String // e.g. "checkout.session.completed", "charge.refunded"
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+}
+
+// ---------------------------------------------------------------------------
+// AUDIT LOG (the "data tracking" requirement: approvals, voids, adjustments,
+// manual entries, sensitive reads). actorUserId references User.id.
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String // e.g. "donation.void", "student.approve", "evaluation.read"
+  entityType  String
+  entityId    String?
+  before      Json?
+  after       Json?
+  reason      String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+  @@index([createdAt])
+}
