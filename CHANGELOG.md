@@ -5,6 +5,27 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Phase D — One-time Stripe donations (2026-07-01)
+
+- Webhook endpoint `POST /api/webhooks/stripe` → `lib/webhooks/stripe-handler.ts`:
+  signature-verified (`constructEvent`), **two-level idempotent** — `StripeEvent.eventId`
+  (event-level) + Donation `@unique` keys (row-level). A duplicate delivery is a no-op.
+- `source=STRIPE` donations are **webhook-only** (`lib/services/donations.ts`). Amount &
+  currency come from **Stripe**, never the browser; USD enforced. Financial fields are
+  written once and immutable thereafter — refund/dispute only touch `refundedAmount`/
+  `status`/void fields. Guest→account match is by **verified email only**.
+- Refunds: partial → `refundedAmount` set, status stays SUCCEEDED; full → REFUNDED. Lost
+  dispute → VOIDED (no dedicated DISPUTED enum value; a possible future addition).
+- Receipt generation (`lib/services/receipts.ts`) with the **isHistorical guard in place
+  now** (never fires for backfilled rows). `getGiftContext` returns REAL gift data,
+  replacing the marketing site's URL-param placeholder. Checkout initiation
+  (`lib/services/checkout.ts`, `/donate`) — needs a real STRIPE_SECRET_KEY to run.
+- Verified offline with SDK-signed fixtures (`npm run verify:stripe`, no live keys):
+  exactly-one-donation with Stripe's amount, duplicate event no-op, row-level guard,
+  unsigned/bad-signature rejection, verified-email match, partial/full refund and lost
+  dispute transitions, real getGiftContext. Stripe CLI (`stripe listen`) is the path for
+  live local forwarding at handoff.
+
 ### Phase C — Mentor scoping & evaluations (2026-07-01)
 
 - **`assertMentorCanAccess` is the one door** (`lib/auth/mentor-access.ts`): pure,
