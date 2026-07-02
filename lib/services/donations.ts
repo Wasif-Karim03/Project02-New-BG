@@ -18,7 +18,7 @@ export type StripeCheckoutData = {
 class UntrustedWebhookError extends Error {}
 
 /** Match a guest to an existing account by VERIFIED email only; else guest donor. */
-async function resolveDonor(db: Db, email: string | null | undefined, name: string | null | undefined) {
+export async function resolveDonor(db: Db, email: string | null | undefined, name: string | null | undefined) {
   const normalized = email?.trim().toLowerCase();
   if (normalized) {
     const user = await db.user.findFirst({ where: { email: normalized, emailVerified: { not: null } } });
@@ -159,4 +159,22 @@ export async function applyDispute(db: Db, params: { paymentIntentId: string; di
     entityId: donation.id,
   });
   return donation;
+}
+
+/**
+ * Enrich a donation with the REAL processor fee from the charge's balance
+ * transaction. Set feeAmount + netAmount = amount - fee. If the fee is genuinely
+ * unknown (null) we do NOTHING — netAmount stays null, never synthesized. Runs on
+ * the charge.succeeded webhook path, itself guarded by StripeEvent idempotency;
+ * the update is also value-idempotent, so reprocessing yields the same result.
+ */
+export async function enrichDonationFee(db: Db, params: { paymentIntentId: string; fee: number | null | undefined }) {
+  if (params.fee == null) return null;
+  const donation = await db.donation.findUnique({ where: { stripePaymentIntentId: params.paymentIntentId } });
+  if (!donation) return null;
+  if (donation.feeAmount === params.fee && donation.netAmount === donation.amount - params.fee) return donation; // already enriched
+  return db.donation.update({
+    where: { id: donation.id },
+    data: { feeAmount: params.fee, netAmount: donation.amount - params.fee },
+  });
 }

@@ -5,6 +5,28 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Phase E — Recurring sponsorships (2026-07-01)
+
+- Subscriptions persisted from mode=subscription Checkout (`lib/services/subscriptions.ts`),
+  idempotent on `stripeSubscriptionId`. Crucially, subscription checkout creates **no
+  donation** — the first cycle's donation comes from the first `invoice.payment_succeeded`,
+  so the first charge is **never double-counted** (verified).
+- Each paid cycle → exactly ONE linked Donation via `invoice.payment_succeeded`, same
+  two-level idempotency (StripeEvent.eventId + Donation `@unique` on `idempotencyKey`=invoice.id
+  and `stripePaymentIntentId`). A retried invoice webhook is a no-op. Each cycle carries the
+  subscription's designation and the **current AcademicSession** for attribution.
+- Fee/net enrichment (decision from Phase D) via the `charge.succeeded` balance transaction,
+  routed through the same StripeEvent idempotency; value-idempotent; `netAmount` stays null
+  when the fee is genuinely unknown (no synthesizing).
+- Lifecycle mapping (`customer.subscription.updated/deleted`) → SubscriptionStatus
+  (active/trialing→ACTIVE, past_due→PAST_DUE, canceled→CANCELED, unpaid→UNPAID, else INCOMPLETE).
+  Cancel reflected; canceled subs drop out of active-sponsorship attribution.
+- Donor dashboard `/dashboard` (giving history + subscriptions + cancel) and admin
+  `/sponsorships` (active recurring). Cancel requests Stripe; the webhook is the source of truth.
+- Verified (`npm run verify:subs`): no first-cycle double-count, retried-invoice no-op,
+  monthly cycle attributed to the current session, idempotent fee enrichment,
+  past_due→PAST_DUE, cancel→CANCELED with no further donations.
+
 ### Phase D — One-time Stripe donations (2026-07-01)
 
 - Webhook endpoint `POST /api/webhooks/stripe` → `lib/webhooks/stripe-handler.ts`:
