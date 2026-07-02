@@ -15,7 +15,8 @@
     "verify:approvals": "tsx scripts/verify-approvals.ts",
     "verify:mentor": "tsx scripts/verify-mentor-access.ts",
     "verify:stripe": "tsx scripts/verify-stripe.ts",
-    "verify:subs": "tsx scripts/verify-subscriptions.ts"
+    "verify:subs": "tsx scripts/verify-subscriptions.ts",
+    "verify:offline": "tsx scripts/verify-offline.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

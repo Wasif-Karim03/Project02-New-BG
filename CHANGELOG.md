@@ -5,6 +5,26 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Phase F — Offline & legacy entry (2026-07-02)
+
+- Manual offline gifts (`lib/services/offline-donations.ts`): CASH/CHECK/BANK/LEGACY/OTHER
+  against a donor + designation, admin-supplied amount + date, audited. Non-historical rows
+  get a receipt; `isHistorical` backfill rows get **none** (guard from Phase D) but still
+  count toward computed totals.
+- Corrections done right: offline rows are **editable**; **Stripe rows are refused**
+  (`StripeRowImmutableError`) — the path is **void-with-reason** (required reason, any row) or
+  a **negative adjustment row** (`correctionOfId`), never a silent edit. Non-financial note
+  edits are allowed on any row.
+- `sumSucceededDonations` (computed, all sources incl. LEGACY/adjustments) — used to prove
+  legacy rows count; Phase G formalizes the public numbers.
+- CSV importer (`lib/services/legacy-import.ts`): parse → validate → **dry-run preview (no
+  writes)** → **commit** (valid rows as historical LEGACY donations; invalid rows reported &
+  skipped, never blocking the good ones). Admin UI: `/offline-donations` (first-class manual
+  entry) and `/legacy-import` (dry-run/commit).
+- Verified (`npm run verify:offline`): create/edit/audit, isHistorical no-receipt-but-counts,
+  Stripe immutability refused, void-with-reason, negative adjustment reduces totals, CSV
+  dry-run writes nothing while commit imports valid + skips invalid.
+
 ### Phase E — Recurring sponsorships (2026-07-01)
 
 - Subscriptions persisted from mode=subscription Checkout (`lib/services/subscriptions.ts`),
