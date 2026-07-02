@@ -5,6 +5,26 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Phase G — Computed numbers & public projection (2026-07-02)
+
+- `lib/public/projection.ts` is the ONE code path that reads PII tables for public
+  output. Whitelist, not blacklist — only the exported `*_KEYS` fields cross. Consent
+  gates (`lib/public/consent.ts`, mirroring canShowPortrait/canShowSuccessStory) are
+  evaluated server-side; a failed gate OMITS the field (no existence leak).
+- Read-only endpoints per PUBLIC_PROJECTION.md, rate-limited + CDN-cached
+  (`lib/public/http.ts`, `Cache-Control: s-maxage=300, swr=600`): `GET /api/public/students`,
+  `/students/:slug`, `/projects`, `/projects/:slug`, `/stats`, `/donor-wall`.
+- Computed (never stored): project `fundingRaised` (Σ amount−refunded, SUCCEEDED, any
+  source; refunds/voids excluded), `totalRaised`, `donorCount` (distinct donors w/ a
+  SUCCEEDED gift), `studentCount`/`schoolCount`; `sponsorshipStatus` (active subscription
+  OR directed SUCCEEDED donation in the current session); grade from the current
+  StudentSession. Donor wall anonymizes (`isAnonymous → "Anonymous"`), never leaks
+  name/email/amount.
+- Snapshot/whitelist test (`npm run verify:projection`): asserts every serialized
+  object's keys ⊆ the whitelist, that no PII VALUE (fullName/fatherName/dob/anon name)
+  ever appears, that consent gates omit fields, that only ACTIVE students list, and that
+  the computed numbers (incl. LEGACY) are correct.
+
 ### Phase F — Offline & legacy entry (2026-07-02)
 
 - Manual offline gifts (`lib/services/offline-donations.ts`): CASH/CHECK/BANK/LEGACY/OTHER
