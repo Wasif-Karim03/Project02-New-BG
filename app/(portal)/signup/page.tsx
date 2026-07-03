@@ -1,4 +1,5 @@
-import { signupDonorAction, signupMentorAction, signupStudentAction } from "./actions";
+import Link from "next/link";
+import { signupDonorAction, signupMentorAction } from "./actions";
 
 type SearchParams = Promise<{ status?: string; role?: string; error?: string }>;
 
@@ -54,17 +55,15 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           <button type="submit" className={submit}>Create mentor account</button>
         </form>
 
-        {/* Student (self) */}
-        <form action={signupStudentAction} className="rounded-lg border border-black/10 p-5">
-          <h2 className="font-semibold">Student</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div><label className={label}>Account name<input name="name" required className={field} /></label></div>
-            <div><label className={label}>First name (public)<input name="firstName" required className={field} /></label></div>
-            <div><label className={label}>Email<input name="email" type="email" required className={field} /></label></div>
-            <div><label className={label}>Password (min 10)<input name="password" type="password" required minLength={10} className={field} /></label></div>
-          </div>
-          <button type="submit" className={submit}>Create student account</button>
-        </form>
+        {/* Students apply through the scholarship application flow, not here. */}
+        <div className="rounded-lg border border-black/10 bg-black/[0.02] p-5">
+          <h2 className="font-semibold">Student?</h2>
+          <p className="mt-1 text-sm text-black/60">
+            Students seeking a scholarship apply through the application form (with the
+            questions and email verification), not this signup.
+          </p>
+          <Link href="/apply" className={`${submit} inline-block`}>Apply to be a student →</Link>
+        </div>
       </div>
     </main>
   );

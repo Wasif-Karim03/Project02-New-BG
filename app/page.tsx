@@ -27,7 +27,7 @@ export default async function Home() {
           <h2 className={heading}>Get in</h2>
           <div className="mt-3 grid gap-2">
             <Link href="/api/auth/signin" className={card}>Sign in →</Link>
-            <Link href="/signup" className={card}>Sign up (donor / mentor / student) →</Link>
+            <Link href="/signup" className={card}>Sign up (donor / mentor) →</Link>
             <Link href="/apply" className={card}>Apply to be a student (scholarship) →</Link>
           </div>
           <h2 className={`${heading} mt-6`}>Admin</h2>
