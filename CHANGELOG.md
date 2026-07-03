@@ -5,6 +5,29 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Student application flow — S1: apply → verify → approve (2026-07-03)
+
+- Schema: new `StudentApplication` model (the bilingual scholarship form + email-
+  verification state + file URLs), `Student` extensions (registration id, orphan,
+  professions/incomes, address, guardian/tutor, purpose/career, and a funding block:
+  paymentType/requireAmount/minDonateAmount/perInstallment/targetType/targetPeriod,
+  verified/active), and enums `ApplicationStatus`/`PaymentType`/`TargetType`. Migration
+  `student_applications` applied.
+- Flow (`lib/services/applications.ts` + `application-review.ts`): applicant account
+  (STUDENT, PENDING) + DRAFT → save → submit (validates required fields + agreement,
+  emails a 6-digit code, stored hashed w/ 15-min expiry) → verify → EMAIL_VERIFIED lands
+  in the admin queue → approve creates an ACTIVE `Student` (slug, mapped fields) and
+  activates the account → reject requires a reason. All decisions audited. A PENDING
+  applicant still cannot hold a real session (the gate holds); the /apply flow uses a
+  lightweight signed applicant cookie instead.
+- UI: `/apply` (account → form → `/apply/verify` → `/apply/done`) and admin
+  `/applications` (queue + full-detail review with approve/reject). Email code prints to
+  the server console in dev.
+- Verified (`npm run verify:applications`): gated submit, wrong-code refusal, verify →
+  queue, approve activates the student + account, reject needs a reason, all audited.
+- Still to come: S2 student portal (anonymized donations), S3 admin backend record +
+  funding, S4 marketing "Apply to be a student" link, plus real file upload + email.
+
 ### Phase G — Computed numbers & public projection (2026-07-02)
 
 - `lib/public/projection.ts` is the ONE code path that reads PII tables for public

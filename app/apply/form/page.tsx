@@ -1,0 +1,98 @@
+import { redirect } from "next/navigation";
+import { getApplicantUserId } from "@/lib/apply-session";
+import { getOrCreateDraft } from "@/lib/services/applications";
+import { saveSubmitAction } from "../actions";
+
+type SearchParams = Promise<{ error?: string }>;
+const f = "mt-1 w-full rounded border border-black/15 px-3 py-2 text-sm";
+const lbl = "block text-xs font-medium text-black/60";
+const H = ({ children }: { children: React.ReactNode }) => <h2 className="mt-8 mb-1 border-b border-black/10 pb-1 text-sm font-semibold uppercase tracking-wide text-black/50">{children}</h2>;
+
+export default async function ApplyFormPage({ searchParams }: { searchParams: SearchParams }) {
+  const userId = await getApplicantUserId();
+  if (!userId) redirect("/apply");
+  const d = await getOrCreateDraft(userId) as Record<string, unknown>;
+  const { error } = await searchParams;
+  const v = (k: string) => (d[k] as string) ?? "";
+
+  const T = ({ name, label, required = false, type = "text" }: { name: string; label: string; required?: boolean; type?: string }) => (
+    <label className={lbl}>{label}{required ? " *" : ""}<input name={name} type={type} required={required} defaultValue={v(name)} className={f} /></label>
+  );
+
+  return (
+    <main className="mx-auto max-w-2xl px-6 py-12">
+      <h1 className="text-2xl font-bold">Student application form</h1>
+      <p className="mt-1 text-sm text-black/60">Fields marked * are required to submit. You&apos;ll verify your email next.</p>
+      {error && <div className="mt-4 rounded border border-red-600/30 bg-red-50 px-4 py-3 text-sm text-red-900">{decodeURIComponent(error)}</div>}
+
+      <form action={saveSubmitAction} className="mt-4">
+        <H>ক. Student information</H>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <T name="nameBn" label="নাম (বাংলায়)" />
+          <T name="nameEn" label="Name (English, CAPS)" required />
+          <T name="fatherNameBn" label="পিতার নাম (বাংলা)" />
+          <T name="fatherNameEn" label="Father's name (English)" required />
+          <T name="motherNameBn" label="মাতার নাম (বাংলা)" />
+          <T name="motherNameEn" label="Mother's name (English)" required />
+          <T name="familyMobile" label="পারিবারিক মোবাইল / Family mobile" required />
+          <label className={lbl}>লিঙ্গ / Gender *
+            <select name="gender" required defaultValue={v("gender")} className={f}>
+              <option value="">—</option><option value="male">পুরুষ / Male</option><option value="female">নারী / Female</option><option value="other">অন্যান্য / Other</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-black/70"><input type="checkbox" name="isOrphan" defaultChecked={!!d.isOrphan} /> অনাথ / Orphan</label>
+          <T name="ethnicity" label="নৃগোষ্ঠী / Ethnicity" />
+        </div>
+
+        <H>খ. Education</H>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <T name="schoolName" label="বিদ্যালয়ের নাম / School name" required />
+          <T name="classNeeded" label="যে শ্রেণীর জন্য বৃত্তি / Class needed" />
+          <T name="currentClass" label="বর্তমান শ্রেণী / Current class" required />
+          <T name="roll" label="রোল / Roll" />
+          <T name="totalStudents" label="মোট শিক্ষার্থী / Total students" />
+          <T name="favoriteSubject" label="প্রিয় বিষয় / Favorite subject" />
+          <T name="mathMarks" label="গণিতে নম্বর / Math marks" />
+          <T name="englishMarks" label="ইংরেজিতে নম্বর / English marks" />
+          <T name="recentGovtExam" label="সাম্প্রতিক সরকারি পরীক্ষা / Recent govt exam" />
+          <T name="careerGoal" label="বড় হয়ে কী হতে চান / Career goal" />
+        </div>
+        <label className={`${lbl} mt-3`}>শখ / Hobbies<textarea name="hobbies" rows={2} defaultValue={v("hobbies")} className={f} /></label>
+
+        <H>গ. Family &amp; social</H>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <T name="addrVillage" label="গ্রাম / Village" />
+          <T name="addrPara" label="পাড়া / Para" />
+          <T name="addrPostOffice" label="পোস্ট অফিস / Post office" />
+          <T name="addrThana" label="থানা/উপজেলা / Thana" />
+          <T name="addrDistrict" label="জেলা / District" required />
+          <T name="localGuardianName" label="স্থানীয় অভিভাবক / Local guardian" />
+          <T name="localGuardianPhone" label="অভিভাবকের ফোন / Guardian phone" />
+          <T name="tutorName" label="প্রাইভেট শিক্ষক / Tutor" />
+          <T name="tutorPhone" label="শিক্ষকের ফোন / Tutor phone" />
+          <T name="familyMembersMale" label="পরিবারে পুরুষ / Male members" type="number" />
+          <T name="familyMembersFemale" label="পরিবারে নারী / Female members" type="number" />
+          <T name="monthlyFamilyIncome" label="মাসিক পারিবারিক আয় / Monthly income" />
+          <T name="fatherProfession" label="বাবার পেশা / Father's profession" />
+          <T name="fatherIncome" label="বাবার আয় / Father's income" />
+          <T name="motherProfession" label="মাতার পেশা / Mother's profession" />
+          <T name="motherIncome" label="মাতার আয় / Mother's income" />
+        </div>
+
+        <H>Documents (optional for now)</H>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <T name="resultSheetUrl" label="Result sheet URL" />
+          <T name="photoUrl" label="Photo URL" />
+        </div>
+        <p className="mt-1 text-xs text-black/40">File upload is being wired; for now paste a link if you have one.</p>
+
+        <label className="mt-6 flex items-start gap-2 text-sm text-black/70">
+          <input type="checkbox" name="agreedTerms" required className="mt-1" />
+          <span>আমি নিশ্চিত করছি উপরের সকল তথ্য সঠিক এবং শর্তাবলীর সাথে একমত। / I confirm the above is accurate and I agree to the terms. *</span>
+        </label>
+
+        <button type="submit" className="mt-4 rounded bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-black/85">Submit &amp; verify email</button>
+      </form>
+    </main>
+  );
+}

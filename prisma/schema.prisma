@@ -139,6 +139,24 @@ enum ReceiptStatus {
   FAILED
 }
 
+enum ApplicationStatus {
+  DRAFT // being filled in
+  SUBMITTED // submitted, awaiting email verification
+  EMAIL_VERIFIED // verified, in the admin approval queue
+  APPROVED
+  REJECTED
+}
+
+enum PaymentType {
+  ONE_TIME
+  INSTALLMENT
+}
+
+enum TargetType {
+  MONTH
+  YEAR
+}
+
 // ---------------------------------------------------------------------------
 // IDENTITY / AUTH
 // `User` is the login. Role-specific profiles hang off it. Note that audit-ish
@@ -164,9 +182,10 @@ model User {
   reviewedAt   DateTime?
 
   // role profiles (1-1, optional — a User has exactly one of these by role)
-  donor   Donor?
-  mentor  Mentor?
-  student Student?
+  donor        Donor?
+  mentor       Mentor?
+  student      Student?
+  applications StudentApplication[]
 
   // Auth.js adapter relations
   accounts Account[]
@@ -322,6 +341,32 @@ model Student {
   enrolledAt   DateTime?
   isHistorical Boolean   @default(false) // imported from old site
 
+  // Application-derived / admin ongoing record (S1+). PII — never projected.
+  registrationId   String?      @unique
+  isOrphan         Boolean      @default(false)
+  ethnicity        String?
+  fatherProfession String?
+  motherProfession String?
+  familyIncome     String?
+  addrVillage      String?
+  addrDistrict     String?
+  guardianName     String?
+  guardianMobile   String?
+  guardianAddress  String?
+  tutorName        String?
+  tutorPhone       String?
+  purpose          String?
+  careerGoal       String?
+  // Funding plan (money = integer MINOR UNITS, USD v1)
+  paymentType      PaymentType?
+  requireAmount    Int?
+  minDonateAmount  Int?
+  perInstallment   Int?
+  targetType       TargetType?
+  targetPeriod     String? // e.g. "2026" or "2026-01"
+  verified         Boolean      @default(false)
+  active           Boolean      @default(true)
+
   // creation/approval audit (ids reference User.id)
   createdById  String?
   reviewedById String?
@@ -332,12 +377,102 @@ model Student {
   assignments   MentorAssignment[]
   donations     Donation[]
   subscriptions Subscription[]
+  applications  StudentApplication[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([schoolId])
+}
+
+// ---------------------------------------------------------------------------
+// STUDENT APPLICATION (the submitted scholarship form — full PII, never
+// projected). Flows: DRAFT -> SUBMITTED (code emailed) -> EMAIL_VERIFIED (in the
+// admin queue) -> APPROVED (maps into a Student + activates) / REJECTED.
+// ---------------------------------------------------------------------------
+
+model StudentApplication {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  status ApplicationStatus @default(DRAFT)
+
+  // email verification (code is stored HASHED, never in plaintext)
+  emailCodeHash      String?
+  emailCodeExpiresAt DateTime?
+  emailVerifiedAt    DateTime?
+
+  // ক. Student info (bilingual)
+  nameBn       String?
+  nameEn       String?
+  fatherNameBn String?
+  fatherNameEn String?
+  motherNameBn String?
+  motherNameEn String?
+  familyMobile String?
+  gender       String?
+  isOrphan     Boolean @default(false)
+  ethnicity    String?
+
+  // খ. Education info
+  schoolName           String?
+  classNeeded          String?
+  currentClass         String?
+  roll                 String?
+  totalStudents        String?
+  favoriteSubject      String?
+  favoriteSubjectMarks String?
+  mathMarks            String?
+  englishMarks         String?
+  otherResults         Json? // [{subject, grade}]
+  recentGovtExam       String?
+  govtExamGrades       Json?
+  careerGoal           String?
+  hobbies              String?
+  existingScholarship  Json? // {org, amount, type}
+  scholarshipNeedFor   Json? // [fees, tuition, materials, other, note]
+
+  // গ. Family & social
+  addrVillage         String?
+  addrPara            String?
+  addrPostOffice      String?
+  addrThana           String?
+  addrDistrict        String?
+  localGuardianName   String?
+  localGuardianPhone  String?
+  tutorName           String?
+  tutorPhone          String?
+  familyMembersMale   Int?
+  familyMembersFemale Int?
+  studyingChildren    String?
+  monthlyFamilyIncome String?
+  fatherProfession    String?
+  fatherIncome        String?
+  motherProfession    String?
+  motherIncome        String?
+  localKnownName      String?
+  localKnownPhone     String?
+
+  // agreements + uploaded files (URLs/keys; bytes live in storage, not the DB)
+  agreedTerms    Boolean @default(false)
+  resultSheetUrl String?
+  photoUrl       String?
+
+  submittedAt     DateTime?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 
 // ---------------------------------------------------------------------------
