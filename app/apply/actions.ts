@@ -45,13 +45,16 @@ export async function saveSubmitAction(formData: FormData) {
   const userId = await getApplicantUserId();
   if (!userId) redirect("/apply");
   await saveDraft(userId!, draftFromForm(formData));
+  let devCode: string | undefined;
   try {
-    await submitApplication(userId!);
+    ({ devCode } = await submitApplication(userId!));
   } catch (e) {
     if (e instanceof MissingFieldsError) redirect("/apply/form?error=" + encodeURIComponent(`Please fill: ${e.fields.join(", ")}`));
     throw e;
   }
-  redirect("/apply/verify");
+  // devCode is only returned when there's no email provider (dev) — surface it on
+  // the verify page so the flow is testable without console access. Never set in prod.
+  redirect(devCode ? `/apply/verify?dev=${devCode}` : "/apply/verify");
 }
 
 export async function verifyCodeAction(formData: FormData) {

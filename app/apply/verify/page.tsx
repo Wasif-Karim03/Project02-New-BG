@@ -2,16 +2,17 @@ import { redirect } from "next/navigation";
 import { getApplicantUserId } from "@/lib/apply-session";
 import { resendCodeAction, verifyCodeAction } from "../actions";
 
-type SearchParams = Promise<{ error?: string; resent?: string }>;
+type SearchParams = Promise<{ error?: string; resent?: string; dev?: string }>;
 
 export default async function ApplyVerifyPage({ searchParams }: { searchParams: SearchParams }) {
   if (!(await getApplicantUserId())) redirect("/apply");
-  const { error, resent } = await searchParams;
+  const { error, resent, dev } = await searchParams;
 
   return (
     <main className="mx-auto max-w-md px-6 py-16">
       <h1 className="text-2xl font-bold">Verify your email</h1>
       <p className="mt-2 text-sm text-black/60">We emailed a 6-digit code. Enter it below to submit your application. (In dev, the code is printed to the server console.)</p>
+      {dev && <div className="mt-4 rounded border border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-900">Dev mode (no email provider): your code is <strong className="tracking-widest">{dev}</strong>.</div>}
       {resent && <div className="mt-4 rounded border border-green-600/30 bg-green-50 px-4 py-3 text-sm text-green-900">A new code was sent.</div>}
       {error && <div className="mt-4 rounded border border-red-600/30 bg-red-50 px-4 py-3 text-sm text-red-900">{decodeURIComponent(error)}</div>}
 
