@@ -45,37 +45,41 @@ export async function approveApplication(adminUserId: string, applicationId: str
     if (app.status !== "EMAIL_VERIFIED") throw new NotReviewableError(app.status);
 
     const firstName = firstNameFrom(app.nameEn, app.user.name?.split(/\s+/)[0] ?? "Student");
-    const slug = await generateUniqueStudentSlug(firstName);
+    // If the user already has a Student (e.g. a prior signup), UPDATE it — never
+    // create a second (Student.userId is unique). Keep an existing slug (immutable).
+    const existing = await tx.student.findUnique({ where: { userId: app.userId }, select: { slug: true } });
+    const slug = existing?.slug ?? (await generateUniqueStudentSlug(firstName));
 
-    const student = await tx.student.create({
-      data: {
-        userId: app.userId,
-        status: "ACTIVE",
-        slug,
-        verified: true,
-        firstName,
-        fullName: app.nameEn,
-        fatherName: app.fatherNameEn,
-        motherName: app.motherNameEn,
-        gender: app.gender,
-        community: app.ethnicity,
-        ethnicity: app.ethnicity,
-        isOrphan: app.isOrphan,
-        fatherProfession: app.fatherProfession,
-        motherProfession: app.motherProfession,
-        familyIncome: app.monthlyFamilyIncome,
-        addrVillage: app.addrVillage,
-        addrDistrict: app.addrDistrict,
-        guardianName: app.localGuardianName,
-        guardianMobile: app.localGuardianPhone,
-        tutorName: app.tutorName,
-        tutorPhone: app.tutorPhone,
-        careerGoal: app.careerGoal,
-        portraitUrl: app.photoUrl,
-        createdById: adminUserId,
-        reviewedById: adminUserId,
-        reviewedAt: new Date(),
-      },
+    const mapped = {
+      status: "ACTIVE" as const,
+      slug,
+      verified: true,
+      firstName,
+      fullName: app.nameEn,
+      fatherName: app.fatherNameEn,
+      motherName: app.motherNameEn,
+      gender: app.gender,
+      community: app.ethnicity,
+      ethnicity: app.ethnicity,
+      isOrphan: app.isOrphan,
+      fatherProfession: app.fatherProfession,
+      motherProfession: app.motherProfession,
+      familyIncome: app.monthlyFamilyIncome,
+      addrVillage: app.addrVillage,
+      addrDistrict: app.addrDistrict,
+      guardianName: app.localGuardianName,
+      guardianMobile: app.localGuardianPhone,
+      tutorName: app.tutorName,
+      tutorPhone: app.tutorPhone,
+      careerGoal: app.careerGoal,
+      portraitUrl: app.photoUrl,
+      reviewedById: adminUserId,
+      reviewedAt: new Date(),
+    };
+    const student = await tx.student.upsert({
+      where: { userId: app.userId },
+      create: { userId: app.userId, createdById: adminUserId, ...mapped },
+      update: mapped,
     });
 
     await tx.studentApplication.update({

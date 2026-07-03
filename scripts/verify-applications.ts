@@ -78,6 +78,16 @@ async function main() {
   check("reject → REJECTED + reason stored", rejected?.status === "REJECTED" && rejected?.rejectionReason === "Incomplete supporting documents");
   check("reject is audited", !!(await prisma.auditLog.findFirst({ where: { action: "application.reject", entityId: app2!.id } })));
 
+  console.log("\nApprove when the user already has a Student (upsert, no collision)");
+  const reg3 = await applyAndVerify("dup");
+  const existingStudent = await prisma.student.create({ data: { userId: reg3.userId, status: "PENDING", firstName: "Old" } });
+  studentIds.push(existingStudent.id);
+  const app3 = await prisma.studentApplication.findFirst({ where: { userId: reg3.userId, status: "EMAIL_VERIFIED" } });
+  const approved3 = await approveApplication(adminId, app3!.id);
+  check("approval UPDATES the existing student (no duplicate)", approved3.studentId === existingStudent.id);
+  check("exactly one student for that user", (await prisma.student.count({ where: { userId: reg3.userId } })) === 1);
+  check("existing student is now ACTIVE + verified", (await prisma.student.findUnique({ where: { id: existingStudent.id } }))?.status === "ACTIVE");
+
   console.log(`\n${failures === 0 ? "✓ ALL APPLICATION CHECKS PASSED" : `✗ ${failures} CHECK(S) FAILED`}`);
 }
 
