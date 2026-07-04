@@ -1,16 +1,18 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { listAssignedStudents } from "@/lib/services/mentor";
-import { createEvaluationAction } from "./actions";
+import { createEvaluationAction, registerStudentAction } from "./actions";
 
 const field = "mt-1 w-full rounded border border-black/15 px-2 py-1 text-sm";
 const label = "block text-xs font-medium text-black/60";
+type SearchParams = Promise<{ registered?: string; error?: string }>;
 
-export default async function MyStudentsPage() {
+export default async function MyStudentsPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await auth();
   if (!session?.user || session.user.role !== "MENTOR" || session.user.status !== "ACTIVE") {
     redirect("/login?callbackUrl=/my-students");
   }
+  const { registered, error } = await searchParams;
 
   const students = await listAssignedStudents(session.user.id);
 
@@ -21,6 +23,14 @@ export default async function MyStudentsPage() {
         Students assigned to you for the current session. Logging a contact/evaluation is
         access-checked server-side and audited.
       </p>
+      {registered && <div className="mt-4 rounded border border-green-600/30 bg-green-50 px-4 py-3 text-sm text-green-900">Student submitted to the admin approval queue.</div>}
+      {error && <div className="mt-4 rounded border border-red-600/30 bg-red-50 px-4 py-3 text-sm text-red-900">{decodeURIComponent(error)}</div>}
+
+      <form action={registerStudentAction} className="mt-6 flex flex-wrap items-end gap-3 rounded-lg border border-black/10 p-4">
+        <label className={label}>Register a new student<input name="firstName" required placeholder="First name" className={field} /></label>
+        <label className={label}>Full name (optional)<input name="fullName" className={field} /></label>
+        <button type="submit" className="rounded bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/85">Submit for approval</button>
+      </form>
 
       {students.length === 0 ? (
         <p className="mt-6 text-sm text-black/40">You have no assigned students this session.</p>

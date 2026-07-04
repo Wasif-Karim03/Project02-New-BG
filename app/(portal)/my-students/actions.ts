@@ -1,9 +1,25 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveMentor } from "@/lib/auth/guards";
+import { registerStudentByMentor } from "@/lib/services/accounts";
 import { createEvaluation } from "@/lib/services/mentor";
+import { mentorRegisterStudentSchema } from "@/lib/validation/accounts";
 import { createEvaluationSchema } from "@/lib/validation/evaluations";
+
+export async function registerStudentAction(formData: FormData) {
+  const mentor = await requireActiveMentor();
+  const parsed = mentorRegisterStudentSchema.safeParse({
+    firstName: formData.get("firstName"),
+    fullName: formData.get("fullName") || undefined,
+    community: formData.get("community") || undefined,
+  });
+  if (!parsed.success) redirect("/my-students?error=" + encodeURIComponent("A first name is required"));
+  // Creates a PENDING, login-less Student in the admin approval queue.
+  await registerStudentByMentor(mentor.id, parsed.data);
+  redirect("/my-students?registered=1");
+}
 
 export async function createEvaluationAction(formData: FormData) {
   const mentor = await requireActiveMentor();

@@ -5,6 +5,16 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Gap fixes (2026-07-04)
+
+- Added the missing `/donate/thank-you` page (Stripe `success_url` target) — shows the
+  real `getGiftContext` gift, or a graceful "processing" message if the webhook hasn't
+  landed yet.
+- Mentors can now **register a student** from `/my-students` (→ admin approval queue), as
+  the build prompt required.
+- Added `GET /api/health` (DB readiness → 503 if down). Removed the dead
+  `signupStudentAction` (students go through `/apply`).
+
 ### File upload + email delivery (2026-07-04)
 
 - Provider-agnostic file storage (`lib/storage.ts`): local disk (`uploads/`, gitignored)
