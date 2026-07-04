@@ -1,4 +1,5 @@
 import type { Donation } from "@prisma/client";
+import { sendEmail } from "@/lib/email";
 import type { Db } from "@/lib/services/audit";
 
 /**
@@ -31,10 +32,16 @@ export async function generateReceipt(db: Db, donation: Donation) {
     },
   });
 
-  // Email delivery is a later step (Resend at handoff). In dev we log the intent
-  // rather than send. Historical rows never reach here, so backfill stays silent.
-  // eslint-disable-next-line no-console
-  console.log(`[receipt] issued ${receipt.receiptNumber} for donation ${donation.id} (email send deferred)`);
+  // Email the receipt via the shared transport (console in dev, SMTP once
+  // EMAIL_SERVER is set). Historical rows never reach here, so backfill stays silent.
+  if (donor?.email) {
+    await sendEmail({
+      to: donor.email,
+      subject: `Your Bridging Generations donation receipt ${receipt.receiptNumber}`,
+      text: `Thank you, ${donor.name ?? "friend"}. This confirms your tax-deductible gift of ${(donation.amount / 100).toFixed(2)} ${donation.currency}. Receipt number: ${receipt.receiptNumber}.`,
+    });
+    await db.receipt.update({ where: { id: receipt.id }, data: { status: "SENT", sentAt: new Date() } });
+  }
 
   return receipt;
 }

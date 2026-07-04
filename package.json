@@ -19,7 +19,8 @@
     "verify:offline": "tsx scripts/verify-offline.ts",
     "verify:projection": "tsx scripts/verify-projection.ts",
     "verify:student-portal": "tsx scripts/verify-student-portal.ts",
-    "verify:student-record": "tsx scripts/verify-student-record.ts"
+    "verify:student-record": "tsx scripts/verify-student-record.ts",
+    "verify:uploads": "tsx scripts/verify-uploads.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

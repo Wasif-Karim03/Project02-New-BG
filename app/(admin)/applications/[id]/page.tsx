@@ -49,7 +49,9 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
       </section>
       <section className="mt-4">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-black/50">Documents</h2>
-        <Row k="Result sheet" val={a.resultSheetUrl} /><Row k="Photo" val={a.photoUrl} /><Row k="Agreed to terms" val={a.agreedTerms ? "Yes" : "No"} />
+        <div className="flex gap-2 py-1 text-sm"><span className="w-56 shrink-0 text-black/50">Result sheet</span>{a.resultSheetUrl ? <a href={a.resultSheetUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">view</a> : <span>—</span>}</div>
+        <div className="flex gap-2 py-1 text-sm"><span className="w-56 shrink-0 text-black/50">Photo</span>{a.photoUrl ? <a href={a.photoUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">view</a> : <span>—</span>}</div>
+        <Row k="Agreed to terms" val={a.agreedTerms ? "Yes" : "No"} />
       </section>
 
       {a.status === "EMAIL_VERIFIED" && (

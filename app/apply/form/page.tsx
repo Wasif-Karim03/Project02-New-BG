@@ -79,12 +79,18 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
           <T name="motherIncome" label="মাতার আয় / Mother's income" />
         </div>
 
-        <H>Documents (optional for now)</H>
+        <H>Documents</H>
         <div className="grid gap-3 sm:grid-cols-2">
-          <T name="resultSheetUrl" label="Result sheet URL" />
-          <T name="photoUrl" label="Photo URL" />
+          <label className={lbl}>Last year&apos;s result sheet (photo or PDF)
+            <input type="file" name="resultSheet" accept="image/*,application/pdf" className="mt-1 block w-full text-sm" />
+            {v("resultSheetUrl") && <span className="text-xs text-green-700">✓ uploaded — re-select to replace</span>}
+          </label>
+          <label className={lbl}>Your photo (school uniform is fine)
+            <input type="file" name="photo" accept="image/*" className="mt-1 block w-full text-sm" />
+            {v("photoUrl") && <span className="text-xs text-green-700">✓ uploaded — re-select to replace</span>}
+          </label>
         </div>
-        <p className="mt-1 text-xs text-black/40">File upload is being wired; for now paste a link if you have one.</p>
+        <p className="mt-1 text-xs text-black/40">JPEG, PNG, WebP, or PDF · up to 5 MB. Your documents are private — only staff and your mentor can view them.</p>
 
         <label className="mt-6 flex items-start gap-2 text-sm text-black/70">
           <input type="checkbox" name="agreedTerms" required className="mt-1" />

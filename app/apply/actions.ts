@@ -5,7 +5,15 @@ import { clearApplicantCookie, getApplicantUserId, setApplicantCookie } from "@/
 import { verifyCredentials } from "@/lib/auth/credentials";
 import { EmailInUseError } from "@/lib/services/accounts";
 import { CodeInvalidError, MissingFieldsError, registerStudentApplicant, saveDraft, submitApplication, verifyEmail } from "@/lib/services/applications";
+import { UploadRejectedError, saveUpload } from "@/lib/storage";
 import { applicationDraftSchema } from "@/lib/validation/applications";
+
+async function uploadIfPresent(v: FormDataEntryValue | null): Promise<string | undefined> {
+  if (v instanceof File && v.size > 0) {
+    return `/api/files/${await saveUpload("applications", v.type, Buffer.from(await v.arrayBuffer()))}`;
+  }
+  return undefined;
+}
 
 export async function createAccountAction(formData: FormData) {
   const email = String(formData.get("email") || "");
@@ -44,7 +52,15 @@ function draftFromForm(formData: FormData) {
 export async function saveSubmitAction(formData: FormData) {
   const userId = await getApplicantUserId();
   if (!userId) redirect("/apply");
-  await saveDraft(userId!, draftFromForm(formData));
+  const draft = draftFromForm(formData);
+  try {
+    draft.resultSheetUrl = (await uploadIfPresent(formData.get("resultSheet"))) ?? draft.resultSheetUrl;
+    draft.photoUrl = (await uploadIfPresent(formData.get("photo"))) ?? draft.photoUrl;
+  } catch (e) {
+    if (e instanceof UploadRejectedError) redirect("/apply/form?error=" + encodeURIComponent(e.message));
+    throw e;
+  }
+  await saveDraft(userId!, draft);
   let devCode: string | undefined;
   try {
     ({ devCode } = await submitApplication(userId!));

@@ -5,6 +5,21 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### File upload + email delivery (2026-07-04)
+
+- Provider-agnostic file storage (`lib/storage.ts`): local disk (`uploads/`, gitignored)
+  keyed + type/size-validated (JPEG/PNG/WebP/PDF, ≤5 MB), swappable to object storage
+  at handoff. The apply form now takes real **result-sheet + photo uploads** (server
+  action, 8 MB body limit).
+- Uploaded documents are minors' PII → served ONLY through an **authenticated** route
+  `GET /api/files/[...key]`: admin, the owner, or a mentor with an ACTIVE assignment may
+  view; everyone else (incl. unauthenticated) is denied. Admin review page links the files.
+- Email now goes through one transport (`lib/email.ts`): console in dev, SMTP once
+  `EMAIL_SERVER` is set. Wired receipts to it (marks `Receipt.status = SENT`); application
+  verification codes already used it.
+- Verified (`npm run verify:uploads`): storage round-trip, bad-file rejection, and the
+  admin/owner/assigned-mentor-only authorization (unassigned mentor cut off).
+
 ### Student application flow — S3: admin backend record (2026-07-04)
 
 - `StudentSession` gains `institutionName` / `formerRoll` / `totalStudent` (migration
