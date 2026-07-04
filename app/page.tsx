@@ -38,6 +38,7 @@ export default async function Home() {
             <Link href="/approvals" className={card}>Approval queue →</Link>
             <Link href="/applications" className={card}>Student applications →</Link>
             <Link href="/roster" className={card}>Student roster (records) →</Link>
+            <Link href="/donations-pending" className={card}>Pending donations (confirm) →</Link>
             <Link href="/assignments" className={card}>Mentor assignments →</Link>
             <Link href="/offline-donations" className={card}>Record an offline gift →</Link>
             <Link href="/legacy-import" className={card}>Legacy CSV import →</Link>
@@ -48,9 +49,9 @@ export default async function Home() {
         <section>
           <h2 className={heading}>Donor &amp; mentor</h2>
           <div className="mt-3 grid gap-2">
-            <Link href="/dashboard" className={card}>Donor dashboard (giving + subscriptions) →</Link>
+            <Link href="/give" className={card}>Give a gift (mobile banking / bank) →</Link>
+            <Link href="/dashboard" className={card}>Donor dashboard (giving history) →</Link>
             <Link href="/my-students" className={card}>Mentor: my students →</Link>
-            <Link href="/donate" className={card}>Donate (needs a Stripe test key) →</Link>
           </div>
           <h2 className={`${heading} mt-6`}>Public API (read-only, no login)</h2>
           <div className="mt-3 grid gap-2 text-sm">
