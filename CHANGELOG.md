@@ -5,6 +5,17 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Student application flow — S2: student portal (2026-07-03)
+
+- After login, students land on `/student` (home redirects STUDENT → portal). Shows
+  their profile (school, district, career goal, sponsored status) + support received
+  (net total, distinct sponsor count) + a list of their sponsors' gifts.
+- Donor identities are ANONYMIZED (`lib/services/student-portal.ts`): a donor who
+  chose `isAnonymous` shows as "Anonymous"; only SUCCEEDED donations directed at THIS
+  student are included — general/other-student/voided gifts never leak in.
+- Verified (`npm run verify:student-portal`): only-own-directed-gifts, anonymization
+  (real name never leaked), net totals, distinct sponsor count, active-sponsorship flag.
+
 ### Student application flow — S1: apply → verify → approve (2026-07-03)
 
 - Schema: new `StudentApplication` model (the bilingual scholarship form + email-

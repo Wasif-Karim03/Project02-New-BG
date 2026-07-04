@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 
 const card = "block rounded-lg border border-black/10 px-4 py-3 text-sm hover:bg-black/[0.03] transition";
@@ -7,6 +8,8 @@ const heading = "text-xs font-semibold uppercase tracking-wide text-black/50";
 export default async function Home() {
   const session = await auth();
   const user = session?.user;
+  // Students land on their own portal, not the staff index.
+  if (user?.role === "STUDENT" && user.status === "ACTIVE") redirect("/student");
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-14">
