@@ -51,6 +51,7 @@ export default async function Home() {
           <h2 className={heading}>Donor &amp; mentor</h2>
           <div className="mt-3 grid gap-2">
             <Link href="/give" className={card}>Give a gift (mobile banking / bank) →</Link>
+            <Link href="/donate" className={card}>Donate by card (Stripe — add keys to enable) →</Link>
             <Link href="/dashboard" className={card}>Donor dashboard (giving history) →</Link>
             <Link href="/my-students" className={card}>Mentor: my students →</Link>
           </div>

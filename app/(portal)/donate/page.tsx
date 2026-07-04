@@ -36,6 +36,9 @@ export default async function DonatePage({ searchParams }: { searchParams: Searc
         <label className={label}>Email (optional — for your receipt)
           <input name="donorEmail" type="email" className={field} />
         </label>
+        <label className="flex items-center gap-2 text-sm text-black/70">
+          <input type="checkbox" name="recurring" /> Make this a monthly sponsorship
+        </label>
         <button type="submit" className="rounded bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/85">
           Continue to payment
         </button>

@@ -5,6 +5,20 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Stripe activation-readiness (2026-07-04)
+
+- Completed the one Stripe gap: **`createSubscriptionCheckout`** (mode=subscription,
+  inline recurring price, metadata on session + subscription) so a donor can START a
+  Stripe recurring sponsorship — the webhook side (record subscription, per-cycle
+  donations, no first-cycle double-count) was already built/verified. `/donate` now has a
+  "make this monthly" checkbox.
+- Added **`docs/STRIPE_SETUP.md`** — the exact activation checklist: keys, the webhook URL
+  + the 7 events to enable, Stripe CLI local testing, test cards, go-live. Re-surfaced the
+  `/donate` (card) link in the portal, labelled "add keys to enable".
+- Net: Stripe is fully wired and dormant; switching it on is plugging in
+  `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` and registering the endpoint. The free
+  mobile-banking flow (`/give`, `/pledges`) coexists on the same ledger.
+
 ### Free donation flow — no Stripe / no fees (2026-07-04)
 
 - Direction change: donations move off Stripe to a free, manual model (mobile banking /

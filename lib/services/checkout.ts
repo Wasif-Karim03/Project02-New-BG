@@ -31,12 +31,51 @@ export async function createCheckoutSession(
       },
     ],
     customer_email: input.donorEmail,
-    metadata: {
-      designationType: input.designationType,
-      ...(input.studentId ? { studentId: input.studentId } : {}),
-      ...(input.projectId ? { projectId: input.projectId } : {}),
-      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-    },
+    metadata: designationMetadata(input),
+    success_url: urls.successUrl,
+    cancel_url: urls.cancelUrl,
+  });
+  return { id: session.id, url: session.url };
+}
+
+function designationMetadata(input: CheckoutInput): Record<string, string> {
+  return {
+    designationType: input.designationType,
+    ...(input.studentId ? { studentId: input.studentId } : {}),
+    ...(input.projectId ? { projectId: input.projectId } : {}),
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+  };
+}
+
+/**
+ * Create a Stripe Checkout Session for a RECURRING sponsorship (mode=subscription
+ * with an inline recurring price). The webhook records the Subscription on
+ * checkout.session.completed and a Donation on each invoice.payment_succeeded (the
+ * first cycle is never double-counted). Metadata is set on BOTH the session and the
+ * subscription so attribution survives. Requires a real STRIPE_SECRET_KEY.
+ */
+export async function createSubscriptionCheckout(
+  input: CheckoutInput,
+  urls: { successUrl: string; cancelUrl: string },
+  interval: "month" | "year" = "month",
+) {
+  const metadata = { ...designationMetadata(input), interval };
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: input.amount,
+          recurring: { interval },
+          product_data: { name: `${productName(input)} (${interval}ly)` },
+        },
+      },
+    ],
+    customer_email: input.donorEmail,
+    metadata,
+    subscription_data: { metadata },
     success_url: urls.successUrl,
     cancel_url: urls.cancelUrl,
   });
