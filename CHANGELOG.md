@@ -5,6 +5,23 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Student application flow — S3: admin backend record (2026-07-04)
+
+- `StudentSession` gains `institutionName` / `formerRoll` / `totalStudent` (migration
+  `studentsession_education`) for the per-session education table.
+- Admin record service (`lib/services/student-record.ts`): edit the backend fields
+  (registration id [unique], purpose/career, professions/incomes, guardian/tutor,
+  and the funding plan: paymentType/requireAmount/minDonateAmount/perInstallment/
+  targetType/targetPeriod); per-session education upsert; verified/active flags; and
+  `deactivateAllStudents` (the "Dec 30 auto-deactivate" — callable now, cron at handoff).
+  All audited.
+- Admin UI: `/roster` (list + year-end deactivation) and `/roster/[id]` (edit record +
+  funding, education table, contacts, verified/active toggles, real donor list).
+- Verified (`npm run verify:student-record`): field edits + registration-id uniqueness,
+  education upsert (idempotent per session), flags, and year-end deactivation (test
+  restores pre-existing active students so live data is untouched). Made the projection
+  test delta-based so it's robust to persistent data.
+
 ### Student application flow — S2: student portal (2026-07-03)
 
 - After login, students land on `/student` (home redirects STUDENT → portal). Shows

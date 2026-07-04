@@ -37,6 +37,7 @@ export default async function Home() {
           <div className="mt-3 grid gap-2">
             <Link href="/approvals" className={card}>Approval queue →</Link>
             <Link href="/applications" className={card}>Student applications →</Link>
+            <Link href="/roster" className={card}>Student roster (records) →</Link>
             <Link href="/assignments" className={card}>Mentor assignments →</Link>
             <Link href="/offline-donations" className={card}>Record an offline gift →</Link>
             <Link href="/legacy-import" className={card}>Legacy CSV import →</Link>

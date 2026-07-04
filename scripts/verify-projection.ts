@@ -66,6 +66,9 @@ async function mkDonation(data: Parameters<typeof prisma.donation.create>[0]["da
 async function main() {
   const school = await prisma.school.findFirstOrThrow({ select: { id: true } });
   const session = await prisma.academicSession.findFirstOrThrow({ where: { isCurrent: true } });
+  // Baseline BEFORE creating test data, so stats assertions are robust to any
+  // pre-existing donations/donors already in the DB (delta, not absolute).
+  const base = await projectStats();
 
   const sFull = await mkStudent({ first: "Full", slug: `full-${T}`, portrait: "GRANTED", story: "GRANTED", scopes: ["WEBSITE"], schoolId: school.id });
   const sNoPortrait = await mkStudent({ first: "NoPortrait", slug: `nop-${T}`, portrait: "PENDING", story: "GRANTED", scopes: ["WEBSITE"], schoolId: school.id });
@@ -121,8 +124,8 @@ async function main() {
 
   console.log("\nComputed numbers");
   check("project fundingRaised = 13000 (8000 net + 5000 legacy; void excluded)", projPub?.fundingRaised === 13000, `got ${projPub?.fundingRaised}`);
-  check("stats.totalRaised = 19500 (all sources; refund/void handled)", stats.totalRaised === 19500, `got ${stats.totalRaised}`);
-  check("stats.donorCount = 5 (distinct donors w/ SUCCEEDED; void-only donor excluded)", stats.donorCount === 5, `got ${stats.donorCount}`);
+  check("stats.totalRaised +19500 (all sources; refund/void handled)", stats.totalRaised - base.totalRaised === 19500, `delta ${stats.totalRaised - base.totalRaised}`);
+  check("stats.donorCount +5 (distinct donors w/ SUCCEEDED; void-only donor excluded)", stats.donorCount - base.donorCount === 5, `delta ${stats.donorCount - base.donorCount}`);
   check("stats.studentCount ≥ 5 ACTIVE", stats.studentCount >= 5);
 
   console.log("\nDonor wall");

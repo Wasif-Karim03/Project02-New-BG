@@ -513,11 +513,14 @@ model StudentSession {
   schoolId String?
   school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
 
-  grade        String? // class
-  roll         String?
-  amountNeeded Int? // funding need for this student this session, in MINOR UNITS
-  currency     String       @default("USD")
-  status       RecordStatus @default(PENDING)
+  institutionName String? // school / college / university for this session
+  grade           String? // class / grade no
+  roll            String?
+  formerRoll      String?
+  totalStudent    String?
+  amountNeeded    Int? // funding need for this student this session, in MINOR UNITS
+  currency        String       @default("USD")
+  status          RecordStatus @default(PENDING)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

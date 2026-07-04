@@ -1,0 +1,91 @@
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { recordAudit } from "@/lib/services/audit";
+import type { StudentRecordInput, StudentSessionInput } from "@/lib/validation/student-record";
+
+export class NotFoundError extends Error {
+  constructor() { super("Student not found"); this.name = "NotFoundError"; }
+}
+export class RegistrationIdTakenError extends Error {
+  constructor() { super("That registration ID is already in use."); this.name = "RegistrationIdTakenError"; }
+}
+
+/** Full admin record: profile + funding + per-session education + real donor list. */
+export async function getStudentRecord(studentId: string) {
+  return prisma.student.findUnique({
+    where: { id: studentId },
+    include: {
+      user: { select: { email: true } },
+      sessions: { include: { session: { select: { label: true } } }, orderBy: { createdAt: "desc" } },
+      donations: {
+        where: { status: "SUCCEEDED" },
+        select: { amount: true, refundedAmount: true, occurredAt: true, isRecurring: true, donor: { select: { name: true, isAnonymous: true } } },
+        orderBy: { occurredAt: "desc" },
+      },
+    },
+  });
+}
+
+export async function listStudentsForAdmin() {
+  return prisma.student.findMany({
+    where: { status: { in: ["ACTIVE", "PENDING"] } },
+    select: { id: true, firstName: true, slug: true, status: true, verified: true, active: true, registrationId: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/** Edit the admin/funding fields on a Student. Audited. */
+export async function updateStudentRecord(adminUserId: string, studentId: string, patch: StudentRecordInput) {
+  const before = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!before) throw new NotFoundError();
+  try {
+    const updated = await prisma.student.update({ where: { id: studentId }, data: patch });
+    await recordAudit(prisma, {
+      actorUserId: adminUserId, action: "student.record.update", entityType: "Student", entityId: studentId,
+      before: { registrationId: before.registrationId, requireAmount: before.requireAmount, verified: before.verified },
+      after: { registrationId: updated.registrationId, requireAmount: updated.requireAmount, verified: updated.verified },
+    });
+    return updated;
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new RegistrationIdTakenError();
+    throw e;
+  }
+}
+
+/** Add or update a per-session education row (Session / Institution / Grade / Roll / Former / Total). Audited. */
+export async function upsertStudentSession(adminUserId: string, studentId: string, input: StudentSessionInput) {
+  const { sessionId, ...data } = input;
+  const row = await prisma.studentSession.upsert({
+    where: { studentId_sessionId: { studentId, sessionId } },
+    create: { studentId, sessionId, status: "ACTIVE", ...data },
+    update: data,
+  });
+  await recordAudit(prisma, {
+    actorUserId: adminUserId, action: "student.session.upsert", entityType: "Student", entityId: studentId,
+    after: { sessionId, grade: data.grade },
+  });
+  return row;
+}
+
+/** Verified/active toggles. Audited. */
+export async function setStudentFlags(adminUserId: string, studentId: string, flags: { verified?: boolean; active?: boolean }) {
+  const updated = await prisma.student.update({ where: { id: studentId }, data: flags });
+  await recordAudit(prisma, {
+    actorUserId: adminUserId, action: "student.flags.set", entityType: "Student", entityId: studentId, after: flags,
+  });
+  return updated;
+}
+
+/**
+ * Year-end deactivation ("30 December all students are automatically deactivated").
+ * Sets active=false on every currently-active student. Audited. Intended to be run
+ * by a scheduled job on Dec 30 (cron wired at handoff); can also be triggered by an admin.
+ */
+export async function deactivateAllStudents(adminUserId: string | null): Promise<number> {
+  const res = await prisma.student.updateMany({ where: { active: true }, data: { active: false } });
+  await recordAudit(prisma, {
+    actorUserId: adminUserId, action: "student.yearend.deactivate", entityType: "Student", entityId: null,
+    after: { deactivated: res.count },
+  });
+  return res.count;
+}
