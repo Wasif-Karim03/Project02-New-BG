@@ -9,7 +9,7 @@ const label = "block text-xs font-medium text-black/60";
 export default async function MyStudentsPage() {
   const session = await auth();
   if (!session?.user || session.user.role !== "MENTOR" || session.user.status !== "ACTIVE") {
-    redirect("/api/auth/signin?callbackUrl=/my-students");
+    redirect("/login?callbackUrl=/my-students");
   }
 
   const students = await listAssignedStudents(session.user.id);

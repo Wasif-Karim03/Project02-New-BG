@@ -8,7 +8,7 @@ const select = "mt-1 rounded border border-black/15 px-2 py-1.5 text-sm";
 export default async function AssignmentsPage() {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
-    redirect("/api/auth/signin?callbackUrl=/assignments");
+    redirect("/login?callbackUrl=/assignments");
   }
 
   const current = await prisma.academicSession.findFirst({ where: { isCurrent: true } });

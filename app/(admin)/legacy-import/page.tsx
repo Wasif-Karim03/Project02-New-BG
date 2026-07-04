@@ -5,7 +5,7 @@ import { ImportForm } from "./ImportForm";
 export default async function LegacyImportPage() {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
-    redirect("/api/auth/signin?callbackUrl=/legacy-import");
+    redirect("/login?callbackUrl=/legacy-import");
   }
 
   return (

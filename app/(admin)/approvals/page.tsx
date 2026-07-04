@@ -16,7 +16,7 @@ export default async function ApprovalsPage() {
   const session = await auth();
   // Server-side authorization on the actual resource — not just authentication.
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
-    redirect("/api/auth/signin?callbackUrl=/approvals");
+    redirect("/login?callbackUrl=/approvals");
   }
 
   const { accounts, loginlessStudents } = await listPendingQueue();

@@ -10,7 +10,7 @@ type SearchParams = Promise<{ error?: string }>;
 
 export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await auth();
-  if (!session?.user || session.user.status !== "ACTIVE") redirect("/api/auth/signin?callbackUrl=/dashboard");
+  if (!session?.user || session.user.status !== "ACTIVE") redirect("/login?callbackUrl=/dashboard");
   const { error } = await searchParams;
 
   const [subs, history] = await Promise.all([

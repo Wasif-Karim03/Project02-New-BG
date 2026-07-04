@@ -18,7 +18,7 @@ export default async function Home() {
           <>Signed in as <strong>{user.email}</strong> ({user.role}).{" "}
           <Link href="/api/auth/signout" className="text-blue-700 underline">Sign out</Link></>
         ) : (
-          <><Link href="/api/auth/signin" className="text-blue-700 underline">Sign in</Link> to reach the admin/donor/mentor screens.</>
+          <><Link href="/login" className="text-blue-700 underline">Sign in</Link> to reach the admin/donor/mentor screens.</>
         )}
       </p>
 
@@ -26,7 +26,7 @@ export default async function Home() {
         <section>
           <h2 className={heading}>Get in</h2>
           <div className="mt-3 grid gap-2">
-            <Link href="/api/auth/signin" className={card}>Sign in →</Link>
+            <Link href="/login" className={card}>Sign in →</Link>
             <Link href="/signup" className={card}>Sign up (donor / mentor) →</Link>
             <Link href="/apply" className={card}>Apply to be a student (scholarship) →</Link>
           </div>

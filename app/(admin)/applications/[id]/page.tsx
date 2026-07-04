@@ -11,7 +11,7 @@ const Row = ({ k, val }: { k: string; val: unknown }) =>
 export default async function ApplicationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
-    redirect("/api/auth/signin?callbackUrl=/applications");
+    redirect("/login?callbackUrl=/applications");
   }
   const { id } = await params;
   const a = await getApplicationForReview(session.user.id, id).catch(() => null);

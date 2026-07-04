@@ -14,6 +14,11 @@ const credentialsSchema = z.object({
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  // Self-hosted over http(localhost) → trust the host so sign-in isn't rejected.
+  trustHost: true,
+  // Use our own /login page (the built-in Auth.js page's CSRF/action handling is
+  // fragile in a production build over http).
+  pages: { signIn: "/login" },
   // Credentials requires JWT sessions, so role/status ride on the JWT (the
   // Session table stays for any future DB-session provider but is dormant here).
   session: { strategy: "jwt" },

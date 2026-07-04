@@ -7,7 +7,7 @@ import { requestCancelSubscription } from "@/lib/services/subscriptions";
 
 export async function cancelSubscriptionAction(formData: FormData) {
   const session = await auth();
-  if (!session?.user || session.user.status !== "ACTIVE") redirect("/api/auth/signin?callbackUrl=/dashboard");
+  if (!session?.user || session.user.status !== "ACTIVE") redirect("/login?callbackUrl=/dashboard");
 
   try {
     await requestCancelSubscription(session.user.id, String(formData.get("subscriptionId")));

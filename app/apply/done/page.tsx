@@ -10,7 +10,7 @@ export default function ApplyDonePage() {
         approves it, you&apos;ll be able to sign in with your email and password to see your profile
         and sponsorship details.
       </p>
-      <Link href="/api/auth/signin" className="mt-6 inline-block rounded bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-black/85">
+      <Link href="/login" className="mt-6 inline-block rounded bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-black/85">
         Go to sign in
       </Link>
     </main>

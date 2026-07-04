@@ -7,7 +7,7 @@ import { approveApplicationAction, rejectApplicationAction } from "./actions";
 export default async function ApplicationsPage() {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
-    redirect("/api/auth/signin?callbackUrl=/applications");
+    redirect("/login?callbackUrl=/applications");
   }
   const apps = await listPendingApplications();
 

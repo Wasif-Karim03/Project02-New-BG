@@ -8,7 +8,7 @@ const usd = (minor: number, currency = "USD") =>
 export default async function SponsorshipsPage() {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
-    redirect("/api/auth/signin?callbackUrl=/sponsorships");
+    redirect("/login?callbackUrl=/sponsorships");
   }
 
   const subs = await listActiveSponsorships();

@@ -11,7 +11,7 @@ type SearchParams = Promise<{ error?: string; ok?: string }>;
 export default async function OfflineDonationsPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
-    redirect("/api/auth/signin?callbackUrl=/offline-donations");
+    redirect("/login?callbackUrl=/offline-donations");
   }
   const { error, ok } = await searchParams;
 
