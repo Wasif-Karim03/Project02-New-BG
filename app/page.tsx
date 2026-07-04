@@ -39,6 +39,7 @@ export default async function Home() {
             <Link href="/applications" className={card}>Student applications →</Link>
             <Link href="/roster" className={card}>Student roster (records) →</Link>
             <Link href="/donations-pending" className={card}>Pending donations (confirm) →</Link>
+            <Link href="/pledges" className={card}>Monthly pledges →</Link>
             <Link href="/assignments" className={card}>Mentor assignments →</Link>
             <Link href="/offline-donations" className={card}>Record an offline gift →</Link>
             <Link href="/legacy-import" className={card}>Legacy CSV import →</Link>

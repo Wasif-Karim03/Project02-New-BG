@@ -5,6 +5,21 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Free donation flow — no Stripe / no fees (2026-07-04)
+
+- Direction change: donations move off Stripe to a free, manual model (mobile banking /
+  bank / cash). Stripe/subscription code is left dormant (harmless without keys).
+- **F1 — one-time gifts**: public `/give` page (env-configurable bKash/Nagad/Rocket/bank
+  details + a claim form) → `submitDonationClaim` creates a **PENDING** donation (doesn't
+  count) → admin `/donations-pending` **confirms** (→ SUCCEEDED, counts, receipt) or
+  **declines** (reason required). Guest→account match by verified email. All audited.
+  (`lib/services/donation-claims.ts`, `npm run verify:donation-claims`.)
+- **F2 — monthly pledges (manual)**: a pledge = a `Subscription` with no Stripe id
+  (`lib/services/pledges.ts`). Admin `/pledges` creates pledges, **logs each payment** as
+  it arrives (→ SUCCEEDED recurring Donation + receipt, counts), sees a **"due"** badge for
+  unpaid periods, and cancels. (`npm run verify:pledges`.)
+- Marketing homepage "Sponsor a Student" now points at the free `/give` flow.
+
 ### Gap fixes (2026-07-04)
 
 - Added the missing `/donate/thank-you` page (Stripe `success_url` target) — shows the

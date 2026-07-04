@@ -21,7 +21,8 @@
     "verify:student-portal": "tsx scripts/verify-student-portal.ts",
     "verify:student-record": "tsx scripts/verify-student-record.ts",
     "verify:uploads": "tsx scripts/verify-uploads.ts",
-    "verify:donation-claims": "tsx scripts/verify-donation-claims.ts"
+    "verify:donation-claims": "tsx scripts/verify-donation-claims.ts",
+    "verify:pledges": "tsx scripts/verify-pledges.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
