@@ -1,10 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { submitDonationClaim } from "@/lib/services/donation-claims";
 import { donationClaimSchema } from "@/lib/validation/donation-claim";
 
 export async function submitClaimAction(formData: FormData) {
+  if (!(await checkRateLimit("give-claim", { max: 10, windowMs: 15 * 60 * 1000 }))) {
+    redirect("/give?error=" + encodeURIComponent("Too many submissions. Please try again later."));
+  }
   const dollars = Number(formData.get("amountDollars"));
   const parsed = donationClaimSchema.safeParse({
     donorName: formData.get("donorName"),

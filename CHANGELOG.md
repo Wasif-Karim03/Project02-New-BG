@@ -5,6 +5,19 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Hardening — Tier 1 (2026-07-05)
+
+- **Self-service password reset**: `PasswordResetToken` (raw token emailed, only its
+  SHA-256 hash stored, 1-hour expiry, single-use, all tokens invalidated on use).
+  `/forgot-password` + `/reset-password` pages; "Forgot your password?" on `/login`.
+  Request is a silent no-op for unknown emails (no account enumeration).
+  (`lib/services/password-reset.ts`, `npm run verify:password-reset`.)
+- **Security headers on the ops app** (it holds PII + money): CSP, HSTS, X-Frame-Options
+  DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy (`next.config.ts`;
+  'unsafe-eval' dev-only).
+- **Rate limiting** on the sensitive forms — `/login`, `/apply` account creation, and
+  `/give` claims — via a shared per-(bucket, IP) limiter (`lib/rate-limit.ts`).
+
 ### Stripe activation-readiness (2026-07-04)
 
 - Completed the one Stripe gap: **`createSubscriptionCheckout`** (mode=subscription,

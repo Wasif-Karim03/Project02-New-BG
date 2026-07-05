@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { clearApplicantCookie, getApplicantUserId, setApplicantCookie } from "@/lib/apply-session";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { verifyCredentials } from "@/lib/auth/credentials";
 import { EmailInUseError } from "@/lib/services/accounts";
 import { CodeInvalidError, MissingFieldsError, registerStudentApplicant, saveDraft, submitApplication, verifyEmail } from "@/lib/services/applications";
@@ -16,6 +17,9 @@ async function uploadIfPresent(v: FormDataEntryValue | null): Promise<string | u
 }
 
 export async function createAccountAction(formData: FormData) {
+  if (!(await checkRateLimit("apply-signup", { max: 5, windowMs: 15 * 60 * 1000 }))) {
+    redirect("/apply?error=" + encodeURIComponent("Too many attempts. Please try again later."));
+  }
   const email = String(formData.get("email") || "");
   const password = String(formData.get("password") || "");
   const name = String(formData.get("name") || "");
