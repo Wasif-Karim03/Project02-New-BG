@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ImportForm } from "./ImportForm";
+import { page, PageHeader } from "../_components/ui";
 
 export default async function LegacyImportPage() {
   const session = await auth();
@@ -9,15 +10,12 @@ export default async function LegacyImportPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold">Legacy CSV import</h1>
-      <p className="mt-1 text-sm text-black/60">
-        Bulk-backfill historical gifts. Imported rows are <strong>historical LEGACY</strong> donations —
-        no receipts or notifications, but they count toward totals. Always <strong>dry-run</strong> first;
-        invalid rows are reported and skipped, never blocking the good ones. Manual entry stays the
-        primary path — this is a convenience.
-      </p>
+    <div className={page}>
+      <PageHeader
+        title="Legacy CSV import"
+        description="Bulk-backfill historical gifts. Imported rows are historical LEGACY donations — no receipts or notifications, but they count toward totals. Always dry-run first; invalid rows are reported and skipped, never blocking the good ones. Manual entry stays the primary path — this is a convenience."
+      />
       <ImportForm />
-    </main>
+    </div>
   );
 }

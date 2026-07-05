@@ -5,6 +5,20 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Admin part — UI redesign + shared shell (2026-07-05)
+
+- **Shared admin shell** (`app/(admin)/layout.tsx`): one auth gate for the whole admin
+  area (removes the per-page copy), a fixed dark **sidebar** with grouped navigation
+  (Overview / Queues / People / Money / Insights), a sticky header with the signed-in
+  admin + sign-out, and a mobile nav fallback.
+- **Design system** (`app/(admin)/_components/ui.tsx` + `AdminNav.tsx`): `PageHeader`,
+  `Card`, `StatCard`, `Badge`, `EmptyState`, and shared button/input classes on a
+  slate/stone/emerald/amber/red palette.
+- **All 15 admin pages** restyled to the system (consistent cards, tables, badges,
+  buttons, inputs) — dashboard, users, reports, audit, settings, approvals, applications
+  (+ detail), roster (+ record editor), assignments, pledges, offline gifts, sponsorships,
+  legacy import, pending donations. Build clean; every page verified 200 for an admin.
+
 ### Admin part — audit viewer + settings (2026-07-05)
 
 - **Audit log viewer** (`/audit`): searchable, newest-first view of every logged action
