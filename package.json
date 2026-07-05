@@ -24,7 +24,8 @@
     "verify:donation-claims": "tsx scripts/verify-donation-claims.ts",
     "verify:pledges": "tsx scripts/verify-pledges.ts",
     "verify:admin-overview": "tsx scripts/verify-admin-overview.ts",
-    "verify:user-management": "tsx scripts/verify-user-management.ts"
+    "verify:user-management": "tsx scripts/verify-user-management.ts",
+    "verify:exports": "tsx scripts/verify-exports.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
