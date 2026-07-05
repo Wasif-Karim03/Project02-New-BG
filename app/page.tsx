@@ -8,8 +8,9 @@ const heading = "text-xs font-semibold uppercase tracking-wide text-black/50";
 export default async function Home() {
   const session = await auth();
   const user = session?.user;
-  // Students land on their own portal, not the staff index.
+  // Students land on their own portal; admins land on the dashboard.
   if (user?.role === "STUDENT" && user.status === "ACTIVE") redirect("/student");
+  if (user?.role === "ADMIN" && user.status === "ACTIVE") redirect("/admin");
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-14">

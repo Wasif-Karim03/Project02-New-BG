@@ -5,6 +5,14 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Admin part — dashboard (2026-07-05)
+
+- New `/admin` dashboard: live metrics (total raised, donors, active students, active
+  pledges) + "needs attention" cards with badges (pending approvals / applications /
+  donations, each mirroring its queue page exactly) + quick links to every admin tool.
+- Admins now land on `/admin` after sign-in (`lib/services/admin-overview.ts`,
+  `npm run verify:admin-overview` — delta-checked counts).
+
 ### Hardening — Tier 1 (2026-07-05)
 
 - **Self-service password reset**: `PasswordResetToken` (raw token emailed, only its
