@@ -1,24 +1,25 @@
 import { prisma } from "@/lib/prisma";
+import { getSettings } from "@/lib/services/settings";
 import { submitClaimAction } from "./actions";
 
 type SearchParams = Promise<{ submitted?: string; error?: string }>;
 const f = "mt-1 w-full rounded border border-black/15 px-3 py-2 text-sm";
 const lbl = "block text-xs font-medium text-black/60";
 
-// Payment channels are env-configurable so the org sets its real numbers without a deploy.
-const CHANNELS = [
-  { label: "bKash", value: process.env.NEXT_PUBLIC_PAY_BKASH },
-  { label: "Nagad", value: process.env.NEXT_PUBLIC_PAY_NAGAD },
-  { label: "Rocket", value: process.env.NEXT_PUBLIC_PAY_ROCKET },
-  { label: "Bank transfer", value: process.env.NEXT_PUBLIC_PAY_BANK },
-].filter((c) => c.value);
-
 export default async function GivePage({ searchParams }: { searchParams: SearchParams }) {
   const { submitted, error } = await searchParams;
-  const [students, projects] = await Promise.all([
+  const [students, projects, pay] = await Promise.all([
     prisma.student.findMany({ where: { status: "ACTIVE" }, select: { id: true, firstName: true }, orderBy: { firstName: "asc" } }),
     prisma.project.findMany({ where: { status: "ACTIVE" }, select: { id: true, title: true } }),
+    getSettings(["pay_bkash", "pay_nagad", "pay_rocket", "pay_bank"]),
   ]);
+  // Admin-editable settings win; env vars are the fallback default.
+  const CHANNELS = [
+    { label: "bKash", value: pay.pay_bkash || process.env.NEXT_PUBLIC_PAY_BKASH },
+    { label: "Nagad", value: pay.pay_nagad || process.env.NEXT_PUBLIC_PAY_NAGAD },
+    { label: "Rocket", value: pay.pay_rocket || process.env.NEXT_PUBLIC_PAY_ROCKET },
+    { label: "Bank transfer", value: pay.pay_bank || process.env.NEXT_PUBLIC_PAY_BANK },
+  ].filter((c) => c.value);
 
   return (
     <main className="mx-auto max-w-lg px-6 py-12">

@@ -5,6 +5,30 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Admin part — audit viewer + settings (2026-07-05)
+
+- **Audit log viewer** (`/audit`): searchable, newest-first view of every logged action
+  with the actor's email resolved (null → "system") and an action filter
+  (`lib/services/audit-log.ts`, `npm run verify:audit-log`).
+- **Settings** (`/settings`): editable payment channels (new `OrgSetting` key/value table;
+  `/give` now reads them with env fallback), academic-session management (create /
+  set-current, keeping the single-current invariant), and a year-end deactivation button.
+  (`lib/services/settings.ts`, `npm run verify:settings`.)
+
+### Admin part — reports & exports (2026-07-05)
+
+- **Reports & CSV exports** (`/reports` + admin-only `/api/admin/export/[type]`): donations
+  (net of refunds, date-range filter), donors (lifetime totals), and student roster — for
+  accounting / 990 / board reports. RFC-4180 CSV, no dependencies.
+  (`lib/services/exports.ts`, `lib/csv.ts`, `npm run verify:exports`.)
+
+### Admin part — staff & user management (2026-07-05)
+
+- **`/users`**: list all users, change roles (auto-creating a Mentor row on promotion),
+  suspend/reactivate, and invite staff (admin/mentor) via an emailed set-password link.
+  Guards: no self-demote/suspend, no removing the last active admin. All audited.
+  (`lib/services/user-management.ts`, `npm run verify:user-management`.)
+
 ### Admin part — dashboard (2026-07-05)
 
 - New `/admin` dashboard: live metrics (total raised, donors, active students, active

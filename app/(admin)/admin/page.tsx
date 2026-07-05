@@ -53,6 +53,8 @@ export default async function AdminDashboard() {
         <Link href="/roster" className={card}>Student roster →</Link>
         <Link href="/users" className={card}>Staff &amp; users →</Link>
         <Link href="/reports" className={card}>Reports &amp; exports →</Link>
+        <Link href="/audit" className={card}>Audit log →</Link>
+        <Link href="/settings" className={card}>Settings →</Link>
         <Link href="/assignments" className={card}>Mentor assignments →</Link>
         <Link href="/pledges" className={card}>Monthly pledges →</Link>
         <Link href="/offline-donations" className={card}>Record offline gift →</Link>

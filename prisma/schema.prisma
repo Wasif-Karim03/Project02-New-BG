@@ -235,6 +235,14 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+// Editable org configuration (payment channel numbers, org info) — key/value so
+// staff can change what's shown publicly without a redeploy.
+model OrgSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // Self-service password reset. The raw token is emailed; only its hash is stored.
 model PasswordResetToken {
   id        String    @id @default(cuid())
