@@ -51,6 +51,7 @@ export default async function AdminDashboard() {
       <h2 className="mt-8 text-xs font-semibold uppercase tracking-wide text-black/50">Manage</h2>
       <section className="mt-3 grid gap-3 sm:grid-cols-3">
         <Link href="/roster" className={card}>Student roster →</Link>
+        <Link href="/users" className={card}>Staff &amp; users →</Link>
         <Link href="/assignments" className={card}>Mentor assignments →</Link>
         <Link href="/pledges" className={card}>Monthly pledges →</Link>
         <Link href="/offline-donations" className={card}>Record offline gift →</Link>

@@ -19,15 +19,19 @@ export class WeakPasswordError extends Error {
  * ALWAYS behaves identically whether or not the email exists (no account
  * enumeration). Returns nothing observable to the caller.
  */
+/** Create a reset token and return the RAW token (for building a link). */
+export async function createResetToken(userId: string, ttlMs: number = TTL_MS): Promise<string> {
+  const raw = randomBytes(32).toString("hex");
+  await prisma.passwordResetToken.create({ data: { userId, tokenHash: hashToken(raw), expiresAt: new Date(Date.now() + ttlMs) } });
+  return raw;
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   const normalized = email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email: normalized }, select: { id: true } });
   if (!user) return; // silent — don't reveal whether the account exists
 
-  const raw = randomBytes(32).toString("hex");
-  await prisma.passwordResetToken.create({
-    data: { userId: user.id, tokenHash: hashToken(raw), expiresAt: new Date(Date.now() + TTL_MS) },
-  });
+  const raw = await createResetToken(user.id);
   const url = `${process.env.AUTH_URL || "http://localhost:3000"}/reset-password?token=${raw}`;
   await sendEmail({
     to: normalized,
