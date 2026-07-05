@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { listStudentsForAdmin } from "@/lib/services/student-record";
 import { deactivateAllAction } from "./actions";
 import { page, PageHeader, Card, Badge, EmptyState, btnDanger } from "../_components/ui";
+import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
 export default async function RosterPage() {
   const session = await auth();
@@ -19,7 +20,7 @@ export default async function RosterPage() {
         description="All student records. Click one to edit its backend record (registration, funding plan, per-session education, contacts, verified/active). Year-end deactivation flips every active student to inactive (runs automatically on Dec 30 once the cron is wired)."
       >
         <form action={deactivateAllAction}>
-          <button type="submit" className={btnDanger}>Run year-end deactivation</button>
+          <ConfirmSubmit className={btnDanger} message="Deactivate ALL active students? Every student will need to re-enroll for the new session. This is audited.">Run year-end deactivation</ConfirmSubmit>
         </form>
       </PageHeader>
 

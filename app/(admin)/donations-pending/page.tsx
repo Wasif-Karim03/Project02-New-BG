@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { listPendingDonations } from "@/lib/services/donation-claims";
 import { confirmDonationAction, declineDonationAction } from "./actions";
 import { page, PageHeader, Card, EmptyState, btnPrimary, btnDanger, input } from "../_components/ui";
+import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
 const usd = (m: number, c = "USD") => new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format(m / 100);
 
@@ -31,7 +32,7 @@ export default async function DonationsPendingPage() {
               </div>
               <div className="flex items-center gap-2">
                 <form action={confirmDonationAction}><input type="hidden" name="id" value={d.id} /><button className={btnPrimary}>Confirm</button></form>
-                <form action={declineDonationAction} className="flex items-center gap-1"><input type="hidden" name="id" value={d.id} /><input name="reason" required placeholder="reason" className={`w-32 ${input}`} /><button className={btnDanger}>Decline</button></form>
+                <form action={declineDonationAction} className="flex items-center gap-1"><input type="hidden" name="id" value={d.id} /><input name="reason" required placeholder="reason" className={`w-32 ${input}`} /><ConfirmSubmit className={btnDanger} message="Decline this donation claim? It will be marked FAILED.">Decline</ConfirmSubmit></form>
               </div>
             </div>
           ))}

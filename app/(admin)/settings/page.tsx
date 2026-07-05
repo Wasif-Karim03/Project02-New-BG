@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getSettings, listAcademicSessions } from "@/lib/services/settings";
 import { createSessionAction, savePaymentSettingsAction, setCurrentSessionAction, yearEndDeactivateAction } from "./actions";
 import { page, PageHeader, Card, Badge, btnPrimary, btnSecondary, btnDanger, input, label } from "../_components/ui";
+import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
 type SearchParams = Promise<{ saved?: string; error?: string; deactivated?: string }>;
 
@@ -54,7 +55,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
       <section className="mt-10">
         <h2 className="text-sm font-semibold text-red-800">Year-end</h2>
         <p className="text-xs text-slate-500">Deactivates every active student in one action (they re-enroll for the new session). Audited.</p>
-        <form action={yearEndDeactivateAction} className="mt-2"><button className={btnDanger}>Run year-end deactivation</button></form>
+        <form action={yearEndDeactivateAction} className="mt-2"><ConfirmSubmit className={btnDanger} message="Deactivate ALL active students? Every student will need to re-enroll for the new session. This is audited.">Run year-end deactivation</ConfirmSubmit></form>
       </section>
     </div>
   );

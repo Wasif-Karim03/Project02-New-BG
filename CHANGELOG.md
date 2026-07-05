@@ -5,6 +5,14 @@ All notable changes to the operational app. Format loosely follows
 
 ## [Unreleased]
 
+### Admin part — safety + activity (2026-07-05)
+
+- **Confirmation dialogs** on every destructive admin action (`ConfirmSubmit`): suspend a
+  user, decline a donation, cancel a pledge, unassign a mentor, and year-end deactivation
+  (both entry points) now require confirmation before submitting.
+- **Recent activity** feed on the dashboard — the latest 8 audited actions (action, entity,
+  actor, time) with a link to the full audit log.
+
 ### Admin part — UI redesign + shared shell (2026-07-05)
 
 - **Shared admin shell** (`app/(admin)/layout.tsx`): one auth gate for the whole admin

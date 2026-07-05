@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { assignAction, unassignAction } from "./actions";
 import { page, PageHeader, Card, EmptyState, btnPrimary, btnDanger, input, label } from "../_components/ui";
+import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
 export default async function AssignmentsPage() {
   const session = await auth();
@@ -66,7 +67,7 @@ export default async function AssignmentsPage() {
                 <form action={unassignAction}>
                   <input type="hidden" name="mentorId" value={a.mentorId} />
                   <input type="hidden" name="studentId" value={a.studentId} />
-                  <button type="submit" className={btnDanger}>Unassign</button>
+                  <ConfirmSubmit className={btnDanger} message="Unassign this mentor from the student? They'll lose access to the record.">Unassign</ConfirmSubmit>
                 </form>
               </li>
             ))}

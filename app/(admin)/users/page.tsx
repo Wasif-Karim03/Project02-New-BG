@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { listUsers } from "@/lib/services/user-management";
 import { inviteStaffAction, setRoleAction, setStatusAction } from "./actions";
 import { page, PageHeader, Card, Badge, btnPrimary, btnSecondary, btnDanger, input, label } from "../_components/ui";
+import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
 type SearchParams = Promise<{ error?: string; invited?: string }>;
 const ROLES = ["ADMIN", "MENTOR", "DONOR", "STUDENT"];
@@ -47,7 +48,9 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
                   <form action={setStatusAction} className="inline">
                     <input type="hidden" name="id" value={u.id} />
                     <input type="hidden" name="status" value={u.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE"} />
-                    <button className={u.status === "ACTIVE" ? btnDanger : btnSecondary}>{u.status === "ACTIVE" ? "Suspend" : "Reactivate"}</button>
+                    {u.status === "ACTIVE"
+                      ? <ConfirmSubmit className={btnDanger} message={`Suspend ${u.email}? They won't be able to sign in until reactivated.`}>Suspend</ConfirmSubmit>
+                      : <button className={btnSecondary}>Reactivate</button>}
                   </form>
                 </td>
               </tr>

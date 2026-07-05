@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { listManualPledges } from "@/lib/services/pledges";
 import { cancelPledgeAction, createPledgeAction, recordPaymentAction } from "./actions";
 import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, btnDanger, input, label } from "../_components/ui";
+import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
 const usd = (m: number, c = "USD") => new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format(m / 100);
 type SearchParams = Promise<{ error?: string }>;
@@ -52,7 +53,7 @@ export default async function PledgesPage({ searchParams }: { searchParams: Sear
                   <input name="reference" placeholder="ref" className={`w-20 ${input}`} />
                   <button className={btnPrimary}>Log payment</button>
                 </form>
-                <form action={cancelPledgeAction}><input type="hidden" name="id" value={p.id} /><button className={btnDanger}>Cancel</button></form>
+                <form action={cancelPledgeAction}><input type="hidden" name="id" value={p.id} /><ConfirmSubmit className={btnDanger} message="Cancel this monthly pledge?">Cancel</ConfirmSubmit></form>
               </span>
             </div>
           ))}
