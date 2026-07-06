@@ -31,6 +31,10 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
     ],
   },
   {
+    title: "Website",
+    links: [{ href: "/content", label: "Website content" }],
+  },
+  {
     title: "Insights",
     links: [
       { href: "/reports", label: "Reports & exports" },
