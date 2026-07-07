@@ -12,7 +12,8 @@ const GROUPS: { title: string; items: { label: string; href: string; hint: strin
     title: "Homepage & site",
     items: [
       { label: "Site settings & homepage", href: singleton("siteSettings"), hint: "Headlines, hero, mission, footer, logo, nav" },
-      { label: "Stats snapshot", href: singleton("statsSnapshot"), hint: "The numbers shown across the site" },
+      { label: "Stats snapshot & hero", href: singleton("statsSnapshot"), hint: "The numbers + homepage hero image/eyebrows" },
+      { label: "Section labels", href: singleton("pageHeaders"), hint: "Every page's small section eyebrow labels" },
     ],
   },
   {
