@@ -182,10 +182,11 @@ model User {
   reviewedAt   DateTime?
 
   // role profiles (1-1, optional — a User has exactly one of these by role)
-  donor        Donor?
-  mentor       Mentor?
-  student      Student?
-  applications StudentApplication[]
+  donor              Donor?
+  mentor             Mentor?
+  student            Student?
+  applications       StudentApplication[]
+  mentorApplications MentorApplication[]
 
   // Auth.js adapter relations
   accounts            Account[]
@@ -294,11 +295,53 @@ model Mentor {
   phone String?
   bio   String?
 
-  assignments MentorAssignment[]
-  evaluations StudentEvaluation[]
+  assignments  MentorAssignment[]
+  evaluations  StudentEvaluation[]
+  applications MentorApplication[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Mentor application — mirrors StudentApplication: account → questions → email
+// verification → admin approval → Mentor record. Field set is a sensible default
+// (refined once the exact mentor questions are provided).
+model MentorApplication {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mentorId String?
+  mentor   Mentor? @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+
+  status ApplicationStatus @default(DRAFT)
+
+  emailCodeHash      String?
+  emailCodeExpiresAt DateTime?
+  emailVerifiedAt    DateTime?
+  submittedAt        DateTime?
+  reviewedById       String?
+  reviewedAt         DateTime?
+
+  // Profile / questions
+  fullName     String?
+  phone        String?
+  profession   String?
+  organization String?
+  city         String?
+  country      String?
+  education    String?
+  languages    String?
+  experience   String? // teaching / mentoring background
+  motivation   String? // why they want to mentor
+  availability String? // e.g. hours per week
+  howHeard     String?
+  agreedTerms  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
     links: [
       { href: "/approvals", label: "Approvals" },
       { href: "/applications", label: "Applications" },
+      { href: "/mentor-applications", label: "Mentor applications" },
       { href: "/donations-pending", label: "Pending donations" },
     ],
   },

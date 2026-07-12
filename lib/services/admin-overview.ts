@@ -5,10 +5,11 @@ import { prisma } from "@/lib/prisma";
  * page exactly (approvals / applications / pending donations) so the badges match.
  */
 export async function getAdminOverview() {
-  const [pendingAccounts, loginlessStudents, pendingApplications, pendingDonations, activeStudents, activePledges, distinctDonors, totalAgg] = await Promise.all([
+  const [pendingAccounts, loginlessStudents, pendingApplications, pendingMentorApplications, pendingDonations, activeStudents, activePledges, distinctDonors, totalAgg] = await Promise.all([
     prisma.user.count({ where: { status: "PENDING" } }),
     prisma.student.count({ where: { status: "PENDING", userId: null } }),
     prisma.studentApplication.count({ where: { status: "EMAIL_VERIFIED" } }),
+    prisma.mentorApplication.count({ where: { status: "EMAIL_VERIFIED" } }),
     prisma.donation.count({ where: { status: "PENDING" } }),
     prisma.student.count({ where: { status: "ACTIVE" } }),
     prisma.subscription.count({ where: { status: "ACTIVE", stripeSubscriptionId: null } }),
@@ -18,6 +19,7 @@ export async function getAdminOverview() {
   return {
     pendingApprovals: pendingAccounts + loginlessStudents,
     pendingApplications,
+    pendingMentorApplications,
     pendingDonations,
     activeStudents,
     activePledges,

@@ -35,7 +35,8 @@ export default async function AdminDashboard() {
       <h2 className="mt-9 mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Needs attention</h2>
       <section className="grid gap-4 sm:grid-cols-3">
         <ActionCard href="/approvals" label="Pending approvals" count={o.pendingApprovals} />
-        <ActionCard href="/applications" label="Pending applications" count={o.pendingApplications} />
+        <ActionCard href="/applications" label="Student applications" count={o.pendingApplications} />
+        <ActionCard href="/mentor-applications" label="Mentor applications" count={o.pendingMentorApplications} />
         <ActionCard href="/donations-pending" label="Pending donations" count={o.pendingDonations} />
       </section>
 
