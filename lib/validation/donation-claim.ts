@@ -19,6 +19,12 @@ export const donationClaimSchema = z
     method: z.enum(PAYMENT_METHODS),
     reference: z.string().trim().max(120).optional(),
     note: z.string().trim().max(500).optional(),
+    // Optional tribute / dedication
+    tributeType: z.enum(["honor", "memory"]).optional(),
+    tributeName: z.string().trim().max(120).optional(),
+    tributeMessage: z.string().trim().max(600).optional(),
+    tributeImageUrl: z.string().trim().max(500).optional(),
+    tributePublic: z.boolean().optional(),
   })
   .refine(
     (v) =>

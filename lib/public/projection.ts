@@ -10,10 +10,12 @@ import { portraitVisible, storyVisible } from "@/lib/public/consent";
 // snapshot test asserts against.
 // =============================================================================
 
-export const STUDENT_KEYS = ["id", "slug", "firstName", "schoolName", "grade", "sponsorshipStatus", "portraitUrl", "quote", "bio"] as const;
+export const STUDENT_KEYS = ["id", "slug", "firstName", "schoolName", "grade", "sponsorshipStatus", "portraitUrl", "quote", "bio",
+  // Sponsorship "ask" — intentionally public (the funding model). Photo/story stay consent-gated.
+  "registrationId", "purpose", "requireAmount", "fundedAmount", "perInstallment", "currency", "isOrphan", "ethnicity", "district"] as const;
 export const PROJECT_KEYS = ["title", "slug", "summary", "status", "displayOrder", "fundingGoal", "fundingRaised", "currency"] as const;
 export const STATS_KEYS = ["studentCount", "schoolCount", "donorCount", "totalRaised", "currency"] as const;
-export const DONORWALL_KEYS = ["displayName", "message", "tier", "year"] as const;
+export const DONORWALL_KEYS = ["id", "displayName", "message", "tier", "year"] as const;
 
 export type PublicStudent = {
   id: string; slug: string; firstName: string; schoolName: string | null;

@@ -191,12 +191,25 @@ export async function listDonorSubscriptions(donorUserId: string) {
 export async function listDonorGivingHistory(donorUserId: string) {
   const donor = await prisma.donor.findUnique({ where: { userId: donorUserId }, select: { id: true } });
   if (!donor) return [];
-  return prisma.donation.findMany({
+  const donations = await prisma.donation.findMany({
     where: { donorId: donor.id },
-    select: { id: true, amount: true, currency: true, status: true, occurredAt: true, isRecurring: true, designationType: true, refundedAmount: true },
+    select: {
+      id: true, amount: true, currency: true, status: true, occurredAt: true, isRecurring: true, designationType: true, refundedAmount: true,
+      tributeType: true, tributeName: true, tributeMessage: true, tributeImageUrl: true,
+      student: { select: { id: true, firstName: true, slug: true, requireAmount: true, status: true } },
+      project: { select: { title: true, slug: true } },
+    },
     orderBy: { occurredAt: "desc" },
     take: 100,
   });
+  // Live funding status for each recipient student — computed on read, so admin
+  // edits and new gifts always reflect here (single source of truth).
+  const studentIds = [...new Set(donations.map((d) => d.student?.id).filter((x): x is string => !!x))];
+  const raised = studentIds.length
+    ? await prisma.donation.groupBy({ by: ["studentId"], where: { studentId: { in: studentIds }, status: "SUCCEEDED", designationType: "STUDENT" }, _sum: { amount: true, refundedAmount: true } })
+    : [];
+  const fundedMap = new Map(raised.map((r) => [r.studentId as string, (r._sum.amount ?? 0) - (r._sum.refundedAmount ?? 0)]));
+  return donations.map((d) => ({ ...d, studentFunded: d.student ? fundedMap.get(d.student.id) ?? 0 : null }));
 }
 
 export async function listActiveSponsorships() {

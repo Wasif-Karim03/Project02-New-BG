@@ -28,7 +28,8 @@
     "verify:exports": "tsx scripts/verify-exports.ts",
     "verify:audit-log": "tsx scripts/verify-audit-log.ts",
     "verify:settings": "tsx scripts/verify-settings.ts",
-    "verify:mentor-applications": "tsx scripts/verify-mentor-applications.ts"
+    "verify:mentor-applications": "tsx scripts/verify-mentor-applications.ts",
+    "verify:donor-accounts": "tsx scripts/verify-donor-accounts.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

@@ -35,6 +35,11 @@ export async function submitDonationClaim(input: DonationClaimInput) {
         occurredAt: new Date(),
         note,
         isHistorical: false,
+        tributeType: input.tributeType,
+        tributeName: input.tributeName,
+        tributeMessage: input.tributeMessage,
+        tributeImageUrl: input.tributeImageUrl,
+        tributePublic: input.tributePublic ?? false,
       },
     });
     await recordAudit(tx, { actorUserId: null, action: "donation.claim.submit", entityType: "Donation", entityId: donation.id, after: { method: input.method, amount: input.amount } });

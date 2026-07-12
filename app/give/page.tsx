@@ -58,8 +58,28 @@ export default async function GivePage({ searchParams }: { searchParams: SearchP
           {projects.length > 0 && <label className={lbl}>Project (if applicable)<select name="projectId" className={f} defaultValue=""><option value="">—</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label>}
         </div>
         <label className={lbl}>Note (optional)<input name="note" className={f} /></label>
+
+        <details className="rounded-lg border border-black/10 p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-black/70">Dedicate this gift (optional)</summary>
+          <p className="mt-1 text-xs text-black/50">Give in honor or memory of someone special. You can add a short message and a photo.</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className={lbl}>This gift is
+              <select name="tributeType" className={f} defaultValue=""><option value="">—</option><option value="honor">In honor of</option><option value="memory">In memory of</option></select>
+            </label>
+            <label className={lbl}>Their name<input name="tributeName" placeholder="e.g. Mom, Dad, Grandpa…" className={f} /></label>
+            <label className={`${lbl} sm:col-span-2`}>Message (optional)<textarea name="tributeMessage" rows={2} className={f} /></label>
+            <label className={`${lbl} sm:col-span-2`}>Photo (optional)<input type="file" name="tributeImage" accept="image/*" className="mt-1 block w-full text-sm" /></label>
+          </div>
+          <label className="mt-2 flex items-center gap-2 text-sm text-black/70"><input type="checkbox" name="tributePublic" /> Show this tribute publicly on our tribute wall</label>
+        </details>
+
         <button type="submit" className="mt-1 rounded bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-black/85">Submit my gift</button>
       </form>
+
+      <p className="mt-6 text-center text-sm text-black/60">
+        Want to track your donations and see the students you support?{" "}
+        <a href="/donor-signup" className="font-semibold text-blue-700 underline">Create a donor account</a>.
+      </p>
     </main>
   );
 }

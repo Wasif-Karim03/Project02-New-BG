@@ -165,17 +165,20 @@ enum TargetType {
 // ---------------------------------------------------------------------------
 
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  name          String?
-  role          Role          @default(DONOR)
-  status        AccountStatus @default(PENDING)
-  emailVerified DateTime?
-  image         String?
+  id                 String        @id @default(cuid())
+  email              String        @unique
+  name               String?
+  role               Role          @default(DONOR)
+  status             AccountStatus @default(PENDING)
+  emailVerified      DateTime?
+  // Self-service email verification (donor accounts): 6-digit code, stored hashed.
+  emailCodeHash      String?
+  emailCodeExpiresAt DateTime?
+  image              String?
   // scrypt hash for email+password login (PRIMARY auth). Null = no password set
   // (magic-link-only / OAuth-only user). A SECRET: never projected, never logged,
   // never leaves the operational store.
-  passwordHash  String?
+  passwordHash       String?
 
   // approval audit (reviewedById references a User.id of an admin)
   reviewedById String?
@@ -723,6 +726,14 @@ model Donation {
   isHistorical Boolean  @default(false) // legacy/backfill — suppresses automations
   occurredAt   DateTime // the gift date (historical date for legacy rows)
   note         String?
+
+  // Optional tribute / dedication ("in honor of" or "in memory of" someone).
+  // tributePublic controls whether it may appear on a public tribute wall.
+  tributeType     String? // "honor" | "memory"
+  tributeName     String?
+  tributeMessage  String?
+  tributeImageUrl String?
+  tributePublic   Boolean @default(false)
 
   // manual-entry / correction audit
   createdById  String? // admin User.id for offline/legacy rows
