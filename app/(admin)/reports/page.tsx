@@ -48,10 +48,14 @@ export default async function ReportsPage() {
         </Card>
         <Card className="flex items-center justify-between p-4">
           <span className="text-sm font-medium text-slate-900">Donors (lifetime totals)</span>
+          {/* API download route, not a Next page — a plain <a> is correct. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/admin/export/donors" className={btnPrimary}>Download CSV</a>
         </Card>
         <Card className="flex items-center justify-between p-4">
           <span className="text-sm font-medium text-slate-900">Students (roster)</span>
+          {/* API download route, not a Next page — a plain <a> is correct. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/admin/export/students" className={btnPrimary}>Download CSV</a>
         </Card>
       </div>

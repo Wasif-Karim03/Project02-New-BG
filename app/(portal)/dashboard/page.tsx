@@ -74,6 +74,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
                     <div className="mt-1 flex items-center gap-2 text-xs text-black/60">
                       {d.tributeImageUrl ? (
                         // biome-ignore lint/performance/noImgElement: small tribute thumbnail
+                        // eslint-disable-next-line @next/next/no-img-element -- small cross-origin thumbnail
                         <img src={d.tributeImageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
                       ) : null}
                       <span>{d.tributeType === "memory" ? "In memory of" : "In honor of"} <strong>{d.tributeName}</strong>{d.tributeMessage ? ` — ${d.tributeMessage}` : ""}</span>
