@@ -42,7 +42,11 @@
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Runtime uses the pooled connection (e.g. Neon's -pooler host). Migrations and
+  // introspection use a DIRECT (unpooled) connection. Locally both point at the
+  // same Postgres, so DIRECT_URL falls back to DATABASE_URL when unset.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {

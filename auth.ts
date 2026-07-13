@@ -5,6 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import Nodemailer from "next-auth/providers/nodemailer";
 import { z } from "zod";
 import { isSignInAllowed, verifyCredentials } from "@/lib/auth/credentials";
+import { sendEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 
 const credentialsSchema = z.object({
@@ -41,8 +42,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Nodemailer({
       from: process.env.EMAIL_FROM,
       server: process.env.EMAIL_SERVER || { host: "localhost", port: 1025 },
+      // Deliver through the shared sender (Resend API / SMTP / console in dev), so
+      // the magic link actually goes out in production instead of only logging.
       async sendVerificationRequest({ identifier, url }) {
-        console.log(`\n[auth] Magic sign-in link for ${identifier}:\n  ${url}\n`);
+        await sendEmail({
+          to: identifier,
+          subject: "Your Bridging Generations sign-in link",
+          text: `Sign in to Bridging Generations:\n\n${url}\n\nIf you didn't request this, you can ignore this email.`,
+        });
       },
     }),
   ],

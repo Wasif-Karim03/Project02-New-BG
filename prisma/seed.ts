@@ -13,10 +13,17 @@ import { hashPassword } from "../lib/password";
 
 const prisma = new PrismaClient();
 
-const ADMIN_EMAIL = "admin@bridginggenerations.org";
-// Dev-only seed password. NEVER use in any deployed environment — the admin must
-// rotate it after first sign-in. Overridable via SEED_ADMIN_PASSWORD.
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe!Admin-dev";
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? "admin@bridginggenerations.org";
+// Password source: SEED_ADMIN_PASSWORD in any real environment (must be strong);
+// falls back to a dev-only default locally. In production ALWAYS pass a strong
+// SEED_ADMIN_PASSWORD — the default must never reach a deployed database.
+const DEV_DEFAULT_PASSWORD = "ChangeMe!Admin-dev";
+const envPassword = process.env.SEED_ADMIN_PASSWORD;
+if (envPassword && envPassword.length < 12) {
+  throw new Error("SEED_ADMIN_PASSWORD must be at least 12 characters.");
+}
+const ADMIN_PASSWORD = envPassword ?? DEV_DEFAULT_PASSWORD;
+const usingDevDefault = !envPassword;
 
 const SESSIONS = [
   { label: "2023-2024", startDate: new Date("2023-07-01"), endDate: new Date("2024-06-30"), isCurrent: false },
@@ -77,7 +84,11 @@ async function main() {
   const current = sessions.find((s) => s.isCurrent);
   console.log("✓ Seed complete");
   console.log(`  admin:    ${admin.email} (role=${admin.role}, status=${admin.status})`);
-  console.log(`  password: ${ADMIN_PASSWORD}  (DEV ONLY — rotate after first sign-in)`);
+  if (usingDevDefault) {
+    console.log(`  password: ${ADMIN_PASSWORD}  (DEV DEFAULT — never use in production; set SEED_ADMIN_PASSWORD)`);
+  } else {
+    console.log("  password: (from SEED_ADMIN_PASSWORD — not printed)");
+  }
   console.log(`  sessions: ${sessions.map((s) => `${s.label}${s.isCurrent ? "*" : ""}`).join(", ")}  (* = current)`);
   console.log(`  current:  ${current?.label}`);
   console.log(`  schools:  ${schools.length} (${schools.map((s) => s.slug).join(", ")})`);
