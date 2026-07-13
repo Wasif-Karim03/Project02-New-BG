@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { portraitVisible } from "@/lib/public/consent";
 
 /** The user (applicant/student/donor) a stored file belongs to, or null if unknown. */
 export async function fileOwnerUserId(fileUrl: string): Promise<string | null> {
@@ -14,8 +15,20 @@ export async function fileOwnerUserId(fileUrl: string): Promise<string | null> {
   return tribute?.donor.userId ?? null;
 }
 
-/** Is this file a tribute photo the donor marked public? Then anyone may view it. */
-async function isPublicTribute(fileUrl: string): Promise<boolean> {
+/**
+ * May ANYONE (including unauthenticated visitors) view this file? True for two
+ * cases, both evaluated LIVE so revoking consent / un-publishing stops serving
+ * within one cache window:
+ *   1. a student portrait whose owner granted portrait consent for the WEBSITE, and
+ *   2. a tribute photo the donor marked public.
+ * These are exactly the files the public marketing site renders.
+ */
+export async function isPublicFile(fileUrl: string): Promise<boolean> {
+  const student = await prisma.student.findFirst({
+    where: { portraitUrl: fileUrl },
+    select: { portraitConsent: true, storyConsent: true, consentScopes: true, consentRevokedAt: true },
+  });
+  if (student && portraitVisible(student)) return true;
   return (await prisma.donation.count({ where: { tributeImageUrl: fileUrl, tributePublic: true } })) > 0;
 }
 
@@ -27,8 +40,8 @@ type Viewer = { id: string; role: string } | undefined;
  * Everyone else — including unauthenticated requests — is denied.
  */
 export async function canViewFile(user: Viewer, fileUrl: string): Promise<boolean> {
-  // A tribute photo the donor chose to make public is viewable by anyone.
-  if (fileUrl.startsWith("/api/files/tributes/") && (await isPublicTribute(fileUrl))) return true;
+  // Consent-gated portraits and public tributes are viewable by anyone.
+  if (await isPublicFile(fileUrl)) return true;
   if (!user) return false;
   if (user.role === "ADMIN") return true;
 

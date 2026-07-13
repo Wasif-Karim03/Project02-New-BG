@@ -8,7 +8,7 @@
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
-import { canViewFile, fileOwnerUserId } from "@/lib/services/file-access";
+import { canViewFile, fileOwnerUserId, isPublicFile } from "@/lib/services/file-access";
 import { UploadRejectedError, readUpload, saveUpload } from "@/lib/storage";
 
 const prisma = new PrismaClient();
@@ -55,6 +55,20 @@ async function main() {
   await prisma.mentorAssignment.update({ where: { id: assignment.id }, data: { active: false, unassignedAt: new Date() } });
   check("unassigned mentor CANNOT view (access cut)", (await canViewFile({ id: mUser.id, role: "MENTOR" }, fileUrl)) === false);
   check("unknown file → denied", (await canViewFile({ id: other.id, role: "DONOR" }, "/api/files/nope.jpg")) === false);
+
+  console.log("\nConsent-gated portraits are public; non-consented are not");
+  const portraitUrl = `/api/files/applications/portrait-${T}.jpg`;
+  // Same student now carries a portrait WITHOUT website consent → still private.
+  await prisma.student.update({ where: { id: student.id }, data: { portraitUrl, portraitConsent: "GRANTED", consentScopes: [], consentRevokedAt: null } });
+  check("portrait without WEBSITE scope is NOT public", (await isPublicFile(portraitUrl)) === false);
+  check("...and unauthenticated still cannot view it", (await canViewFile(undefined, portraitUrl)) === false);
+  // Grant website consent → the portrait becomes publicly viewable.
+  await prisma.student.update({ where: { id: student.id }, data: { consentScopes: ["WEBSITE"] } });
+  check("portrait with granted WEBSITE consent IS public", (await isPublicFile(portraitUrl)) === true);
+  check("...and an unauthenticated visitor CAN view it", (await canViewFile(undefined, portraitUrl)) === true);
+  // Revoking consent immediately stops public serving.
+  await prisma.student.update({ where: { id: student.id }, data: { consentRevokedAt: new Date() } });
+  check("revoking consent makes the portrait private again", (await isPublicFile(portraitUrl)) === false);
 
   console.log(`\n${failures === 0 ? "✓ ALL UPLOAD CHECKS PASSED" : `✗ ${failures} CHECK(S) FAILED`}`);
 }

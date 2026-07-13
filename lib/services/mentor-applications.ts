@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { sendEmail } from "@/lib/email";
+import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { EmailInUseError } from "@/lib/services/accounts";
@@ -57,7 +57,7 @@ export async function submitMentorApplication(userId: string): Promise<{ applica
     data: { status: "SUBMITTED", emailCodeHash, emailCodeExpiresAt: new Date(Date.now() + CODE_TTL_MS), submittedAt: new Date() },
   });
   await sendEmail({ to: user.email, subject: "Your Bridging Generations mentor verification code", text: `Your mentor verification code is ${code}. It expires in 15 minutes.` });
-  return { applicationId: app.id, devCode: process.env.EMAIL_SERVER ? undefined : code };
+  return { applicationId: app.id, devCode: isEmailConfigured() ? undefined : code };
 }
 
 export async function verifyMentorEmail(userId: string, code: string): Promise<{ applicationId: string }> {

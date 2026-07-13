@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { sendEmail } from "@/lib/email";
+import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/services/audit";
@@ -78,7 +78,7 @@ export async function submitApplication(userId: string): Promise<{ applicationId
 
   // devCode is returned ONLY when there is no real email transport, so a dev/test
   // can complete the flow. Never surfaced to the client when email is configured.
-  return { applicationId: app.id, devCode: process.env.EMAIL_SERVER ? undefined : code };
+  return { applicationId: app.id, devCode: isEmailConfigured() ? undefined : code };
 }
 
 /** Verify the emailed code → EMAIL_VERIFIED (enters the admin queue). */

@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { sendEmail } from "@/lib/email";
+import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { EmailInUseError } from "@/lib/services/accounts";
@@ -37,7 +37,7 @@ export async function registerDonorWithVerification(input: { name: string; phone
     throw e;
   }
   await sendEmail({ to: email, subject: "Verify your Bridging Generations account", text: `Your verification code is ${code}. It expires in 15 minutes.` });
-  return { userId, devCode: process.env.EMAIL_SERVER ? undefined : code };
+  return { userId, devCode: isEmailConfigured() ? undefined : code };
 }
 
 export async function verifyDonorEmail(userId: string, code: string): Promise<void> {
@@ -52,5 +52,5 @@ export async function resendDonorCode(userId: string): Promise<{ devCode?: strin
   const code = genCode();
   await prisma.user.update({ where: { id: userId }, data: { emailCodeHash: await hashPassword(code), emailCodeExpiresAt: new Date(Date.now() + CODE_TTL_MS) } });
   await sendEmail({ to: user.email, subject: "Your Bridging Generations verification code", text: `Your verification code is ${code}. It expires in 15 minutes.` });
-  return { devCode: process.env.EMAIL_SERVER ? undefined : code };
+  return { devCode: isEmailConfigured() ? undefined : code };
 }
