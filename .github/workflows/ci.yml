@@ -1,0 +1,85 @@
+name: CI
+
+# Gate every PR (and pushes to main) on the checks that must stay green:
+# typecheck, structure/hygiene guard, production build, and the full verify
+# suite against a real Postgres. Lint runs but is advisory for now — the repo
+# carries pre-existing lint debt that is being cleaned up separately.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bridging_ops
+          POSTGRES_PASSWORD: bridging_ops
+          POSTGRES_DB: bridging_ops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bridging_ops"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://bridging_ops:bridging_ops@localhost:5432/bridging_ops_test?schema=public
+      AUTH_SECRET: ci-not-a-real-secret-ci-not-a-real-secret
+      AUTH_URL: http://localhost:3000
+      # Test-only Stripe values so signature/webhook verify scripts have a secret
+      # to sign with. No live keys — nothing here touches real Stripe.
+      STRIPE_SECRET_KEY: sk_test_ci_dummy
+      STRIPE_WEBHOOK_SECRET: whsec_ci_dummy
+      EMAIL_FROM: no-reply@bridginggenerations.local
+      # EMAIL_SERVER intentionally unset: verification flows return the dev code
+      # in-band, which the verify scripts rely on.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed baseline data
+        run: npx prisma db seed
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Structure & hygiene guard
+        run: npm run structure
+
+      - name: Lint (advisory)
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify suite
+        run: |
+          set -o pipefail
+          fail=0
+          for f in scripts/verify-*.ts; do
+            echo "::group::$f"
+            npx tsx "$f" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
