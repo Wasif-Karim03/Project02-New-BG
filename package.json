@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint --max-warnings 0",
     "structure": "bash scripts/check-structure.sh",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",

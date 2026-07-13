@@ -57,11 +57,15 @@ export default async function Home() {
             <Link href="/my-students" className={card}>Mentor: my students →</Link>
           </div>
           <h2 className={`${heading} mt-6`}>Public API (read-only, no login)</h2>
+          {/* These target API routes (raw JSON), not Next pages — a plain <a> is
+              correct here; client-side <Link> navigation does not apply. */}
           <div className="mt-3 grid gap-2 text-sm">
+            {/* eslint-disable @next/next/no-html-link-for-pages */}
             <a href="/api/public/stats" className={card}>/api/public/stats →</a>
             <a href="/api/public/projects" className={card}>/api/public/projects →</a>
             <a href="/api/public/students" className={card}>/api/public/students →</a>
             <a href="/api/public/donor-wall" className={card}>/api/public/donor-wall →</a>
+            {/* eslint-enable @next/next/no-html-link-for-pages */}
           </div>
         </section>
       </div>

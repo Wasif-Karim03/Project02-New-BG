@@ -5,7 +5,6 @@
  */
 export async function sendEmail(msg: { to: string; subject: string; text: string }): Promise<void> {
   if (!process.env.EMAIL_SERVER) {
-    // eslint-disable-next-line no-console
     console.log(`\n[email → ${msg.to}] ${msg.subject}\n${msg.text}\n`);
     return;
   }

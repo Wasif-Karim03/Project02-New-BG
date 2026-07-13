@@ -1,9 +1,8 @@
 name: CI
 
 # Gate every PR (and pushes to main) on the checks that must stay green:
-# typecheck, structure/hygiene guard, production build, and the full verify
-# suite against a real Postgres. Lint runs but is advisory for now — the repo
-# carries pre-existing lint debt that is being cleaned up separately.
+# lint (zero warnings), typecheck, structure/hygiene guard, production build,
+# and the full verify suite against a real Postgres.
 on:
   pull_request:
   push:
@@ -66,9 +65,8 @@ jobs:
       - name: Structure & hygiene guard
         run: npm run structure
 
-      - name: Lint (advisory)
+      - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Build
         run: npm run build

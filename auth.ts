@@ -42,7 +42,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       from: process.env.EMAIL_FROM,
       server: process.env.EMAIL_SERVER || { host: "localhost", port: 1025 },
       async sendVerificationRequest({ identifier, url }) {
-        // eslint-disable-next-line no-console
         console.log(`\n[auth] Magic sign-in link for ${identifier}:\n  ${url}\n`);
       },
     }),

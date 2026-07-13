@@ -19,7 +19,6 @@ import {
   registerStudentSelf,
 } from "@/lib/services/accounts";
 import {
-  approveStudent,
   approveUser,
   listPendingQueue,
   rejectStudent,
