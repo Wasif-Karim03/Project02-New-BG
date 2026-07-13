@@ -29,7 +29,17 @@ async function resolveDonor(db: Db, input: OfflineDonationInput) {
     if (!donor) throw new NotFoundError();
     return donor;
   }
-  return db.donor.create({ data: { userId: null, name: input.donorName!, email: input.donorEmail } });
+  // Admin-entered data is trusted: reuse an existing donor with this email rather
+  // than inflating the donor list with a duplicate. Prefer a linked account.
+  const email = input.donorEmail?.trim().toLowerCase();
+  if (email) {
+    const match = await db.donor.findFirst({
+      where: { email },
+      orderBy: [{ userId: "desc" }, { createdAt: "asc" }], // linked account first, else earliest guest
+    });
+    if (match) return match;
+  }
+  return db.donor.create({ data: { userId: null, name: input.donorName!, email: email ?? input.donorEmail } });
 }
 
 /**

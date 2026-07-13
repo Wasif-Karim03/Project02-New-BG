@@ -30,11 +30,13 @@ function designationFromMetadata(md: Record<string, string>) {
   if (!["STUDENT", "PROJECT", "GENERAL"].includes(designationType)) {
     throw new UntrustedWebhookError("missing/invalid designationType metadata");
   }
-  return {
-    designationType,
-    studentId: designationType === "STUDENT" ? md.studentId : undefined,
-    projectId: designationType === "PROJECT" ? md.projectId : undefined,
-  };
+  const studentId = designationType === "STUDENT" ? md.studentId : undefined;
+  const projectId = designationType === "PROJECT" ? md.projectId : undefined;
+  // A STUDENT/PROJECT designation must carry its target id, or every cycle donation
+  // it spawns would be an orphan. Reject as untrusted rather than persist a bad sub.
+  if (designationType === "STUDENT" && !studentId) throw new UntrustedWebhookError("STUDENT designation missing studentId");
+  if (designationType === "PROJECT" && !projectId) throw new UntrustedWebhookError("PROJECT designation missing projectId");
+  return { designationType, studentId, projectId };
 }
 
 export type SubscriptionCheckoutData = {
@@ -208,7 +210,7 @@ export async function listDonorGivingHistory(donorUserId: string) {
   const raised = studentIds.length
     ? await prisma.donation.groupBy({ by: ["studentId"], where: { studentId: { in: studentIds }, status: "SUCCEEDED", designationType: "STUDENT" }, _sum: { amount: true, refundedAmount: true } })
     : [];
-  const fundedMap = new Map(raised.map((r) => [r.studentId as string, (r._sum.amount ?? 0) - (r._sum.refundedAmount ?? 0)]));
+  const fundedMap = new Map(raised.map((r) => [r.studentId as string, Math.max(0, (r._sum.amount ?? 0) - (r._sum.refundedAmount ?? 0))]));
   return donations.map((d) => ({ ...d, studentFunded: d.student ? fundedMap.get(d.student.id) ?? 0 : null }));
 }
 

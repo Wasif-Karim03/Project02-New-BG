@@ -60,6 +60,10 @@ export async function recordStripeDonationFromCheckout(db: Db, data: StripeCheck
   }
   const studentId = designationType === "STUDENT" ? md.studentId : undefined;
   const projectId = designationType === "PROJECT" ? md.projectId : undefined;
+  // A STUDENT/PROJECT designation MUST carry its target id — otherwise the gift would
+  // be an orphan that never shows in any student's/project's funding. Reject as untrusted.
+  if (designationType === "STUDENT" && !studentId) throw new UntrustedWebhookError("STUDENT designation missing studentId");
+  if (designationType === "PROJECT" && !projectId) throw new UntrustedWebhookError("PROJECT designation missing projectId");
   const sessionId = md.sessionId || undefined;
 
   const fee = data.feeAmount ?? null;

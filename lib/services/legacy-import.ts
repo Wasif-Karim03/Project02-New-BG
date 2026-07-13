@@ -95,7 +95,12 @@ export async function commitImport(adminUserId: string, csvText: string): Promis
         : undefined;
 
     await prisma.$transaction(async (tx) => {
-      const donor = await tx.donor.create({ data: { userId: null, name: data.donorName, email: data.donorEmail } });
+      // Reuse an existing donor with this email so repeat givers across rows don't
+      // fan out into duplicate donor records. Prefer a linked account.
+      const email = data.donorEmail?.trim().toLowerCase();
+      const donor =
+        (email && (await tx.donor.findFirst({ where: { email }, orderBy: [{ userId: "desc" }, { createdAt: "asc" }] }))) ||
+        (await tx.donor.create({ data: { userId: null, name: data.donorName, email: email ?? data.donorEmail } }));
       const donation = await tx.donation.create({
         data: {
           donorId: donor.id,
