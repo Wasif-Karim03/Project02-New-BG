@@ -69,10 +69,6 @@ export default async function Home() {
           </div>
         </section>
       </div>
-
-      <p className="mt-10 text-xs text-black/40">
-        Seeded admin: admin@bridginggenerations.org · dev password ChangeMe!Admin-dev (rotate after first sign-in).
-      </p>
     </main>
   );
 }
