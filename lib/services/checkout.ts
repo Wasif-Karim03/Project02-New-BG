@@ -59,7 +59,10 @@ export async function createSubscriptionCheckout(
   urls: { successUrl: string; cancelUrl: string },
   interval: "month" | "year" = "month",
 ) {
-  const metadata = { ...designationMetadata(input), interval };
+  // Include the per-cycle amount: mode=subscription checkouts return a null
+  // amount_total on the session, so the webhook falls back to md.amount to record
+  // Subscription.amount. (Cycle Donations still take their amount from each invoice.)
+  const metadata = { ...designationMetadata(input), interval, amount: String(input.amount) };
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [

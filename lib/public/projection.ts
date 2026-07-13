@@ -163,7 +163,8 @@ async function studentRaisedMap(): Promise<Map<string, number>> {
     where: { status: "SUCCEEDED", designationType: "STUDENT", studentId: { not: null } },
     _sum: { amount: true, refundedAmount: true },
   });
-  return new Map(raised.map((r) => [r.studentId as string, (r._sum.amount ?? 0) - (r._sum.refundedAmount ?? 0)]));
+  // Clamp at 0 — a net-negative adjustment run should never render as negative funding.
+  return new Map(raised.map((r) => [r.studentId as string, Math.max(0, (r._sum.amount ?? 0) - (r._sum.refundedAmount ?? 0))]));
 }
 
 export async function projectStudents(): Promise<PublicStudent[]> {
@@ -243,7 +244,7 @@ export async function projectProjects(): Promise<PublicProject[]> {
     prisma.project.findMany({ select: { id: true, title: true, slug: true, summary: true, status: true, displayOrder: true, fundingGoal: true, currency: true }, orderBy: { displayOrder: "asc" } }),
     prisma.donation.groupBy({ by: ["projectId"], where: { status: "SUCCEEDED", projectId: { not: null } }, _sum: { amount: true, refundedAmount: true } }),
   ]);
-  const raisedMap = new Map(raised.map((r) => [r.projectId, (r._sum.amount ?? 0) - (r._sum.refundedAmount ?? 0)]));
+  const raisedMap = new Map(raised.map((r) => [r.projectId, Math.max(0, (r._sum.amount ?? 0) - (r._sum.refundedAmount ?? 0))]));
   // Construct explicitly — id is used to join fundingRaised but NEVER projected.
   return projects.map((p) => ({
     title: p.title, slug: p.slug, summary: p.summary, status: p.status, displayOrder: p.displayOrder,
@@ -266,7 +267,7 @@ export async function projectStats(): Promise<PublicStats> {
     studentCount,
     schoolCount,
     donorCount: distinctDonors.length,
-    totalRaised: (totalAgg._sum.amount ?? 0) - (totalAgg._sum.refundedAmount ?? 0),
+    totalRaised: Math.max(0, (totalAgg._sum.amount ?? 0) - (totalAgg._sum.refundedAmount ?? 0)),
     currency: "USD",
   };
 }
@@ -274,6 +275,8 @@ export async function projectStats(): Promise<PublicStats> {
 export async function projectDonorWall(): Promise<PublicDonorWallEntry[]> {
   const donors = await prisma.donor.findMany({
     where: { donations: { some: { status: "SUCCEEDED" } } },
+    // Stable, deterministic order so the public wall doesn't reshuffle on refresh.
+    orderBy: [{ name: "asc" }, { createdAt: "asc" }],
     select: {
       id: true, name: true, isAnonymous: true, wallMessage: true, wallTier: true,
       donations: { where: { status: "SUCCEEDED" }, select: { occurredAt: true }, orderBy: { occurredAt: "desc" }, take: 1 },

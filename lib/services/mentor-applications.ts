@@ -31,7 +31,9 @@ export async function registerMentorApplicant(input: { email: string; password: 
 }
 
 export async function getOrCreateMentorDraft(userId: string) {
-  const existing = await prisma.mentorApplication.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });
+  // Only ever touch an in-progress application; never a terminal one
+  // (EMAIL_VERIFIED sitting in the queue, APPROVED, or REJECTED).
+  const existing = await prisma.mentorApplication.findFirst({ where: { userId, status: { in: ["DRAFT", "SUBMITTED"] } }, orderBy: { createdAt: "desc" } });
   return existing ?? prisma.mentorApplication.create({ data: { userId, status: "DRAFT" } });
 }
 
@@ -79,9 +81,14 @@ export async function getMentorApplication(id: string) {
   return prisma.mentorApplication.findUnique({ where: { id }, include: { user: { select: { email: true, name: true } } } });
 }
 
+export class MentorNotReviewableError extends Error { constructor() { super("Application is not awaiting review."); this.name = "MentorNotReviewableError"; } }
+
 export async function approveMentorApplication(adminUserId: string, applicationId: string) {
   return prisma.$transaction(async (tx) => {
-    const app = await tx.mentorApplication.findUniqueOrThrow({ where: { id: applicationId } });
+    // Only an EMAIL_VERIFIED application may be approved — never a DRAFT/SUBMITTED/
+    // already-APPROVED/REJECTED one (prevents activating an unverified or rejected user).
+    const app = await tx.mentorApplication.findFirst({ where: { id: applicationId, status: "EMAIL_VERIFIED" } });
+    if (!app) throw new MentorNotReviewableError();
     const mentor = await tx.mentor.upsert({
       where: { userId: app.userId },
       create: { userId: app.userId, phone: app.phone, bio: app.motivation },

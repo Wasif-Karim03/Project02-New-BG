@@ -93,6 +93,9 @@ export async function verifyCodeAction(formData: FormData) {
 export async function resendCodeAction() {
   const userId = await getApplicantUserId();
   if (!userId) redirect("/apply");
+  if (!(await checkRateLimit("apply-resend", { max: 5, windowMs: 15 * 60 * 1000 }))) {
+    redirect("/apply/verify?error=" + encodeURIComponent("Too many code requests. Please wait a few minutes."));
+  }
   await submitApplication(userId!);
   redirect("/apply/verify?resent=1");
 }

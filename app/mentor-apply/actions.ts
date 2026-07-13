@@ -66,6 +66,9 @@ export async function verifyMentorCodeAction(formData: FormData) {
 export async function resendMentorCodeAction() {
   const userId = await getApplicantUserId();
   if (!userId) redirect("/mentor-apply");
+  if (!(await checkRateLimit("mentor-resend", { max: 5, windowMs: 15 * 60 * 1000 }))) {
+    redirect("/mentor-apply/verify?error=" + encodeURIComponent("Too many code requests. Please wait a few minutes."));
+  }
   const { devCode } = await submitMentorApplication(userId);
   redirect(devCode ? `/mentor-apply/verify?resent=1&dev=${devCode}` : "/mentor-apply/verify?resent=1");
 }

@@ -17,8 +17,11 @@ import { hashPassword, verifyPassword } from "../lib/password";
 const prisma = new PrismaClient();
 
 const ADMIN_EMAIL = "admin@bridginggenerations.org";
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe!Admin-dev";
 const TEMP_PASSWORD = "temp-pass-123";
+// The authorize()/JWT/session logic is exercised against a DEDICATED temp admin
+// with a known password, so the test is deterministic and never depends on (or
+// mutates) the real seeded admin's actual password, which can be rotated freely.
+const TEMP_ADMIN_EMAIL = "verify-admin@example.test";
 const PENDING_EMAIL = "verify-pending@example.test";
 const SUSPENDED_EMAIL = "verify-suspended@example.test";
 
@@ -45,14 +48,24 @@ function simulateJwtAndSession(user: { id: string; role: string; status: string 
 }
 
 async function main() {
-  console.log("\n(a) Seeded ACTIVE admin can sign in");
+  console.log("\n(a) Seeded ACTIVE admin exists (smoke test — does not depend on its password)");
   const admin = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
   check("admin exists", !!admin, admin ? `id=${admin.id}` : "not found — run the seed first");
   if (admin) {
     check("admin.status is ACTIVE", admin.status === "ACTIVE", admin.status);
     check("admin.passwordHash is set", !!admin.passwordHash);
-    check("password verifies", await verifyPassword(ADMIN_PASSWORD, admin.passwordHash));
-    const authed = await simulateAuthorize(ADMIN_EMAIL, ADMIN_PASSWORD);
+  }
+
+  const adminHash = await hashPassword(TEMP_PASSWORD);
+  try {
+    console.log("\n(a′) An ACTIVE admin with a known password can sign in");
+    await prisma.user.upsert({
+      where: { email: TEMP_ADMIN_EMAIL },
+      update: { status: "ACTIVE", passwordHash: adminHash, role: "ADMIN" },
+      create: { email: TEMP_ADMIN_EMAIL, name: "Verify Admin", role: "ADMIN", status: "ACTIVE", passwordHash: adminHash },
+    });
+    check("password verifies", await verifyPassword(TEMP_PASSWORD, adminHash));
+    const authed = await simulateAuthorize(TEMP_ADMIN_EMAIL, TEMP_PASSWORD);
     check("authorize() returns the admin", !!authed, authed ? `role=${authed.role}` : "refused");
 
     console.log("\n(b) role + status present on JWT and session");
@@ -64,6 +77,8 @@ async function main() {
       check("session.user.status present", session.user.status === "ACTIVE", `status=${session.user.status}`);
       check("session.user.id present", !!session.user.id);
     }
+  } finally {
+    await prisma.user.deleteMany({ where: { email: TEMP_ADMIN_EMAIL } });
   }
 
   console.log("\n(c) PENDING / SUSPENDED / wrong-password are refused");

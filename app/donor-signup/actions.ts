@@ -44,6 +44,9 @@ export async function verifyDonorAction(formData: FormData) {
 export async function resendDonorAction() {
   const userId = await getApplicantUserId();
   if (!userId) redirect("/donor-signup");
+  if (!(await checkRateLimit("donor-resend", { max: 5, windowMs: 15 * 60 * 1000 }))) {
+    redirect("/donor-signup/verify?error=" + encodeURIComponent("Too many code requests. Please wait a few minutes."));
+  }
   const { devCode } = await resendDonorCode(userId);
   redirect(devCode ? `/donor-signup/verify?resent=1&dev=${devCode}` : "/donor-signup/verify?resent=1");
 }
