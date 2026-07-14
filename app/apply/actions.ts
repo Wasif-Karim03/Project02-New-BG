@@ -64,7 +64,15 @@ export async function saveSubmitAction(formData: FormData) {
     if (e instanceof UploadRejectedError) redirect("/apply/form?error=" + encodeURIComponent(e.message));
     throw e;
   }
-  await saveDraft(userId!, draft);
+  try {
+    await saveDraft(userId!, draft);
+  } catch (e) {
+    // saveDraft throws once the application is already EMAIL_VERIFIED/APPROVED
+    // (a resubmit). Don't 500 — send them to the friendly "already submitted"
+    // status page instead of re-rendering an editable form they can't save.
+    if (e instanceof CodeInvalidError) redirect("/apply/done");
+    throw e;
+  }
   let devCode: string | undefined;
   try {
     ({ devCode } = await submitApplication(userId!));

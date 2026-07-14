@@ -3,8 +3,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { portraitVisible } from "@/lib/public/consent";
 import { getStudentRecord } from "@/lib/services/student-record";
-import { setFlagsAction, updateRecordAction, upsertSessionAction } from "../actions";
-import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, input, label } from "../../_components/ui";
+import { deleteStudentAction, setFlagsAction, updateRecordAction, upsertSessionAction } from "../actions";
+import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, btnDanger, input, label } from "../../_components/ui";
+import { ConfirmSubmit } from "../../_components/ConfirmSubmit";
 
 const usd = (m: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(m / 100);
 type SearchParams = Promise<{ ok?: string; error?: string }>;
@@ -14,7 +15,11 @@ export default async function RosterEditPage({ params, searchParams }: { params:
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") redirect("/login?callbackUrl=/roster");
   const { id } = await params;
   const { ok, error } = await searchParams;
-  const [s, sessions] = await Promise.all([getStudentRecord(id), prisma.academicSession.findMany({ orderBy: { label: "desc" } })]);
+  const [s, sessions, schools] = await Promise.all([
+    getStudentRecord(id),
+    prisma.academicSession.findMany({ orderBy: { label: "desc" } }),
+    prisma.school.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
   if (!s) notFound();
   const dollars = (m: number | null) => (m == null ? "" : (m / 100).toString());
 
@@ -53,6 +58,25 @@ export default async function RosterEditPage({ params, searchParams }: { params:
       <form action={updateRecordAction}>
         <input type="hidden" name="studentId" value={s.id} />
         <Card className="p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Identity</h2>
+          <p className="mb-3 text-xs text-slate-500">Correct a misspelled name, the wrong parent name, gender, school, or bio here.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className={label}>First name (public)<input name="firstName" defaultValue={s.firstName} className={input} /></label>
+            <label className={label}>Full name<input name="fullName" defaultValue={s.fullName ?? ""} className={input} /></label>
+            <label className={label}>Father name<input name="fatherName" defaultValue={s.fatherName ?? ""} className={input} /></label>
+            <label className={label}>Mother name<input name="motherName" defaultValue={s.motherName ?? ""} className={input} /></label>
+            <label className={label}>Gender<input name="gender" defaultValue={s.gender ?? ""} className={input} /></label>
+            <label className={label}>School
+              <select name="schoolId" defaultValue={s.schoolId ?? ""} className={input}>
+                <option value="">— none —</option>
+                {schools.map((sc) => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
+              </select>
+            </label>
+            <label className={`sm:col-span-2 ${label}`}>Bio<textarea name="bio" defaultValue={s.bio ?? ""} rows={3} className={input} /></label>
+          </div>
+        </Card>
+
+        <Card className="mt-6 p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Basic + funding</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className={label}>Registration ID<input name="registrationId" defaultValue={s.registrationId ?? ""} className={input} /></label>
@@ -119,6 +143,25 @@ export default async function RosterEditPage({ params, searchParams }: { params:
         {s.donations.length === 0 ? <EmptyState>No donations directed to this student.</EmptyState> : (
           <table className="w-full text-sm"><tbody>{s.donations.map((d, i) => <tr key={i} className="border-b border-slate-100"><td className="py-2">{d.donor.name}{d.donor.isAnonymous ? " (anon)" : ""}</td><td className="py-2">{usd(d.amount - d.refundedAmount)}</td><td className="py-2">{new Date(d.occurredAt).toLocaleDateString()}</td><td className="py-2">{d.isRecurring ? "recurring" : ""}</td></tr>)}</tbody></table>
         )}
+      </Card>
+
+      {/* Danger zone — permanent erasure. Separate from the soft active/verified toggles above. */}
+      <Card className="mt-6 border-red-200 p-4">
+        <h2 className="mb-1 text-sm font-semibold text-red-800">Danger zone — permanently delete</h2>
+        <p className="mb-3 max-w-2xl text-xs text-slate-500">
+          Irreversibly erases this student record, their application(s), per-session education, mentor
+          assignments, evaluations, and login (if any), plus their uploaded photo and documents. Donation
+          history is kept but un-linked from the student. This cannot be undone — for a temporary hide, use
+          &ldquo;inactive&rdquo; or &ldquo;hidden from website&rdquo; above instead.
+        </p>
+        <form action={deleteStudentAction} className="grid gap-3 sm:grid-cols-2">
+          <input type="hidden" name="studentId" value={s.id} />
+          <label className={label}>Type <span className="font-semibold text-red-700">DELETE</span> to confirm<input name="confirm" autoComplete="off" placeholder="DELETE" className={input} /></label>
+          <label className={label}>Reason (audited)<input name="reason" placeholder="e.g. duplicate record / erasure request" className={input} /></label>
+          <div className="sm:col-span-2">
+            <ConfirmSubmit className={btnDanger} message="Permanently delete this student and their login? This CANNOT be undone.">Delete permanently</ConfirmSubmit>
+          </div>
+        </form>
       </Card>
     </div>
   );

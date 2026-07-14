@@ -1,11 +1,22 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { createOfflineDonationAction } from "./actions";
-import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, input, label } from "../_components/ui";
+import {
+  createOfflineDonationAction, postAdjustmentAction, updateOfflineDonationAction, voidDonationAction,
+} from "./actions";
+import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, btnSecondary, btnDanger, input, label } from "../_components/ui";
+import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
 const usd = (m: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(m / 100);
 type SearchParams = Promise<{ error?: string; ok?: string }>;
+
+const OK_MESSAGES: Record<string, string> = {
+  created: "Offline gift recorded.",
+  voided: "Donation voided.",
+  adjusted: "Adjustment posted.",
+  updated: "Donation updated.",
+  "1": "Saved.",
+};
 
 function statusTone(status: string) {
   if (status === "SUCCEEDED" || status === "ACTIVE") return "green";
@@ -24,17 +35,17 @@ export default async function OfflineDonationsPage({ searchParams }: { searchPar
   const [projects, students, recent] = await Promise.all([
     prisma.project.findMany({ where: { status: "ACTIVE" }, select: { id: true, title: true } }),
     prisma.student.findMany({ where: { status: "ACTIVE" }, select: { id: true, firstName: true } }),
-    prisma.donation.findMany({ where: { source: { not: "STRIPE" } }, select: { id: true, amount: true, source: true, occurredAt: true, isHistorical: true, status: true }, orderBy: { createdAt: "desc" }, take: 15 }),
+    prisma.donation.findMany({ where: { source: { not: "STRIPE" } }, select: { id: true, amount: true, source: true, occurredAt: true, isHistorical: true, status: true, note: true, correctionOfId: true }, orderBy: { createdAt: "desc" }, take: 15 }),
   ]);
 
   return (
     <div className={page}>
       <PageHeader
         title="Record an offline gift"
-        description="Cash, check, bank transfer, or other. Fully editable and audit-logged. Historical/backfill rows are counted in totals but get no receipt."
+        description="Cash, check, bank transfer, or other. Offline rows below can be edited, voided (with reason), or corrected with an adjustment — every change is audit-logged. Historical/backfill rows are counted in totals but get no receipt. Stripe rows are immutable (void or adjust instead)."
       />
 
-      {ok && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Recorded.</div>}
+      {ok && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{OK_MESSAGES[ok] ?? "Saved."}</div>}
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{decodeURIComponent(error)}</div>}
 
       <Card className="p-4">
@@ -77,17 +88,50 @@ export default async function OfflineDonationsPage({ searchParams }: { searchPar
                 <th className="py-2">Amount</th>
                 <th className="py-2">Source</th>
                 <th className="py-2">Status</th>
+                <th className="py-2">Correct</th>
               </tr>
             </thead>
             <tbody>
-              {recent.map((d) => (
-                <tr key={d.id} className="border-b border-slate-100">
-                  <td className="py-2">{new Date(d.occurredAt).toLocaleDateString()}</td>
-                  <td className="py-2">{usd(d.amount)}</td>
-                  <td className="py-2">{d.source}{d.isHistorical ? " · historical" : ""}</td>
-                  <td className="py-2"><Badge tone={statusTone(d.status)}>{d.status}</Badge></td>
-                </tr>
-              ))}
+              {recent.map((d) => {
+                const voided = d.status === "VOIDED";
+                return (
+                  <tr key={d.id} className="border-b border-slate-100 align-top">
+                    <td className="py-2 whitespace-nowrap">{new Date(d.occurredAt).toLocaleDateString()}</td>
+                    <td className="py-2 whitespace-nowrap">{usd(d.amount)}{d.correctionOfId ? " · adj" : ""}</td>
+                    <td className="py-2">{d.source}{d.isHistorical ? " · historical" : ""}</td>
+                    <td className="py-2"><Badge tone={statusTone(d.status)}>{d.status}</Badge></td>
+                    <td className="py-2">
+                      <details className="group">
+                        <summary className="cursor-pointer select-none text-xs font-medium text-slate-500 hover:text-slate-800">Correct ▾</summary>
+                        <div className="mt-2 space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                          {/* Edit amount / note (offline rows only) */}
+                          <form action={updateOfflineDonationAction} className="flex flex-wrap items-end gap-2">
+                            <input type="hidden" name="donationId" value={d.id} />
+                            <label className={label}>Amount (USD)<input name="amountDollars" type="number" step="0.01" min="0" defaultValue={(d.amount / 100).toString()} className={`mt-1 w-28 ${input}`} /></label>
+                            <label className={label}>Note<input name="note" defaultValue={d.note ?? ""} className={`mt-1 w-48 ${input}`} /></label>
+                            <button className={btnSecondary}>Save edit</button>
+                          </form>
+                          {/* Post an adjustment (keeps original; amount may be negative) */}
+                          <form action={postAdjustmentAction} className="flex flex-wrap items-end gap-2">
+                            <input type="hidden" name="donationId" value={d.id} />
+                            <label className={label}>Adjustment (USD, +/−)<input name="adjustDollars" type="number" step="0.01" placeholder="-10.00" className={`mt-1 w-28 ${input}`} /></label>
+                            <label className={label}>Note<input name="note" className={`mt-1 w-48 ${input}`} /></label>
+                            <button className={btnSecondary}>Post adjustment</button>
+                          </form>
+                          {/* Void with reason */}
+                          {!voided && (
+                            <form action={voidDonationAction} className="flex flex-wrap items-end gap-2">
+                              <input type="hidden" name="donationId" value={d.id} />
+                              <label className={label}>Void reason<input name="reason" required className={`mt-1 w-48 ${input}`} /></label>
+                              <ConfirmSubmit className={btnDanger} message="Void this donation? It will stop counting toward totals. This is audited.">Void</ConfirmSubmit>
+                            </form>
+                          )}
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Card>

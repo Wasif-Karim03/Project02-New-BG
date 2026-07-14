@@ -1,8 +1,9 @@
 import type { ConsentScope } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getCurrentSessionId } from "@/lib/services/academic-session";
 import { sendDecisionEmail } from "@/lib/services/account-emails";
 import { recordAudit } from "@/lib/services/audit";
-import { generateUniqueStudentSlug } from "@/lib/slug";
+import { generateUniqueStudentSlug, slugify } from "@/lib/slug";
 
 export class NotFoundError extends Error {
   constructor() { super("Application not found"); this.name = "NotFoundError"; }
@@ -66,10 +67,29 @@ export async function approveApplication(adminUserId: string, applicationId: str
       registrationId = `${prefix}${String((Number.isNaN(n) ? 0 : n) + 1).padStart(4, "0")}`;
     }
 
+    // School: the application stores a free-text school name. Find-or-create a
+    // School row by name so the student carries a real schoolId (and the public
+    // page / portal can show the school), rather than dropping the name.
+    let schoolId: string | null = null;
+    if (app.schoolName?.trim()) {
+      const name = app.schoolName.trim();
+      let school = await tx.school.findFirst({ where: { name }, select: { id: true } });
+      if (!school) {
+        const base = slugify(name);
+        let uniqueSlug = base;
+        for (let i = 2; await tx.school.findUnique({ where: { slug: uniqueSlug }, select: { id: true } }); i++) {
+          uniqueSlug = `${base}-${i}`;
+        }
+        school = await tx.school.create({ data: { name, slug: uniqueSlug }, select: { id: true } });
+      }
+      schoolId = school.id;
+    }
+
     const mapped = {
       status: "ACTIVE" as const,
       slug,
       registrationId,
+      schoolId,
       verified: true,
       firstName,
       fullName: app.nameEn,
@@ -104,6 +124,34 @@ export async function approveApplication(adminUserId: string, applicationId: str
       update: mapped,
     });
 
+    // Seed a per-session enrollment for the current academic session so the
+    // school + grade (free-text `currentClass`) surface on the portal / public
+    // page. Upsert keeps this idempotent if the student is re-approved.
+    const currentSessionId = await getCurrentSessionId(tx);
+    if (currentSessionId) {
+      await tx.studentSession.upsert({
+        where: { studentId_sessionId: { studentId: student.id, sessionId: currentSessionId } },
+        create: {
+          studentId: student.id,
+          sessionId: currentSessionId,
+          schoolId,
+          institutionName: app.schoolName,
+          grade: app.currentClass,
+          roll: app.roll,
+          totalStudent: app.totalStudents,
+          status: "ACTIVE",
+        },
+        update: {
+          schoolId,
+          institutionName: app.schoolName,
+          grade: app.currentClass,
+          roll: app.roll,
+          totalStudent: app.totalStudents,
+          status: "ACTIVE",
+        },
+      });
+    }
+
     await tx.studentApplication.update({
       where: { id: applicationId },
       data: { status: "APPROVED", studentId: student.id, reviewedById: adminUserId, reviewedAt: new Date() },
@@ -121,7 +169,12 @@ export async function approveApplication(adminUserId: string, applicationId: str
   return { studentId: result.studentId, slug: result.slug };
 }
 
-/** Reject (reason required). The account stays PENDING so they can re-apply. Audited. */
+/**
+ * Reject (reason required). REJECTION POLICY (shared with mentor rejection):
+ * rejected accounts STAY ABLE TO RE-APPLY — only the application moves to
+ * REJECTED, and the User account is left PENDING so the applicant can submit a
+ * fresh application (getOrCreateDraft opens a new DRAFT). Audited.
+ */
 export async function rejectApplication(adminUserId: string, applicationId: string, reason: string) {
   if (!reason?.trim()) throw new ReasonRequiredError();
   const result = await prisma.$transaction(async (tx) => {

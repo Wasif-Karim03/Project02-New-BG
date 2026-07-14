@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { loginAction } from "./actions";
 
-type SearchParams = Promise<{ error?: string; callbackUrl?: string; reset?: string }>;
+type SearchParams = Promise<{ error?: string; callbackUrl?: string; reset?: string; status?: string }>;
+
+const STATUS_MESSAGES: Record<string, string> = {
+  pending: "Your account is awaiting review. We'll email you as soon as it's approved.",
+  rejected: "Your application was not approved. If you think this is a mistake, please contact us.",
+  suspended: "Your account has been suspended. Please contact us for help.",
+};
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
-  const { error, callbackUrl, reset } = await searchParams;
+  const { error, callbackUrl, reset, status } = await searchParams;
+  const statusMessage = status ? STATUS_MESSAGES[status] : undefined;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col px-6 py-20">
@@ -13,6 +20,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
       <p className="mt-2 text-sm text-ink-2">Sign in to your account to continue.</p>
 
       {reset && <div className="mt-6 rounded-xl border border-accent/25 bg-accent/5 px-4 py-3 text-sm text-accent">Password updated — sign in with your new password.</div>}
+      {statusMessage && <div className="mt-6 rounded-xl border border-accent-3/50 bg-accent-3/15 px-4 py-3 text-sm text-ink">{statusMessage}</div>}
       {error && <div className="mt-6 rounded-xl border border-accent-2/30 bg-accent-2/10 px-4 py-3 text-sm text-accent-2-text">{error === "rate" ? "Too many attempts. Please wait a minute and try again." : "Email or password is incorrect."}</div>}
 
       <form action={loginAction} className="mt-6 grid gap-4 rounded-2xl border border-hairline bg-ground-2 p-6 shadow-sm">

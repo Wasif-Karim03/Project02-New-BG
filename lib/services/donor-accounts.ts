@@ -27,9 +27,22 @@ export async function registerDonorWithVerification(input: { name: string; phone
       const user = await tx.user.create({
         data: { email, name: input.name, role: "DONOR", status: "PENDING", passwordHash, emailCodeHash, emailCodeExpiresAt: new Date(Date.now() + CODE_TTL_MS) },
       });
-      const guest = await tx.donor.findFirst({ where: { email, userId: null } });
-      if (guest) await tx.donor.update({ where: { id: guest.id }, data: { userId: user.id, name: input.name, phone: input.phone } });
-      else await tx.donor.create({ data: { userId: user.id, name: input.name, email, phone: input.phone } });
+      // Adopt EVERY guest donor row for this email so no past gift is stranded on a
+      // duplicate. userId is @unique, so we promote the earliest guest to the account
+      // row and fold the rest into it (reassign their donations/subscriptions, then
+      // drop the now-empty duplicates).
+      const guests = await tx.donor.findMany({ where: { email, userId: null }, orderBy: { createdAt: "asc" } });
+      if (guests.length === 0) {
+        await tx.donor.create({ data: { userId: user.id, name: input.name, email, phone: input.phone } });
+      } else {
+        const [primary, ...rest] = guests;
+        await tx.donor.update({ where: { id: primary.id }, data: { userId: user.id, name: input.name, phone: input.phone } });
+        for (const dup of rest) {
+          await tx.donation.updateMany({ where: { donorId: dup.id }, data: { donorId: primary.id } });
+          await tx.subscription.updateMany({ where: { donorId: dup.id }, data: { donorId: primary.id } });
+          await tx.donor.delete({ where: { id: dup.id } });
+        }
+      }
       return user.id;
     });
   } catch (e) {

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { submitDonationClaim } from "@/lib/services/donation-claims";
 import { UploadRejectedError, saveUpload } from "@/lib/storage";
@@ -11,19 +12,10 @@ export async function submitClaimAction(formData: FormData) {
     redirect("/give?error=" + encodeURIComponent("Too many submissions. Please try again later."));
   }
 
-  // Optional tribute photo → object storage.
-  let tributeImageUrl: string | undefined;
-  const img = formData.get("tributeImage");
-  if (img instanceof File && img.size > 0) {
-    try {
-      tributeImageUrl = `/api/files/${await saveUpload("tributes", img.type, Buffer.from(await img.arrayBuffer()))}`;
-    } catch (e) {
-      if (e instanceof UploadRejectedError) redirect("/give?error=" + encodeURIComponent(e.message));
-      throw e;
-    }
-  }
-
+  // Validate the text fields FIRST so a bad form never leaves an orphaned tribute
+  // blob in storage (upload only happens once the rest of the claim is known-good).
   const dollars = Number(formData.get("amountDollars"));
+  const isAnonymous = formData.get("isAnonymous") === "on";
   const parsed = donationClaimSchema.safeParse({
     donorName: formData.get("donorName"),
     donorEmail: formData.get("donorEmail") || "",
@@ -37,10 +29,31 @@ export async function submitClaimAction(formData: FormData) {
     tributeType: formData.get("tributeType") || undefined,
     tributeName: formData.get("tributeName") || undefined,
     tributeMessage: formData.get("tributeMessage") || undefined,
-    tributeImageUrl,
-    tributePublic: formData.get("tributePublic") === "on",
+    isAnonymous,
   });
   if (!parsed.success) redirect("/give?error=" + encodeURIComponent(parsed.error.issues[0]?.message ?? "Please check the form"));
-  await submitDonationClaim(parsed.data);
+
+  // Now (and only now) persist the optional tribute photo → object storage.
+  let tributeImageUrl: string | undefined;
+  const img = formData.get("tributeImage");
+  if (img instanceof File && img.size > 0) {
+    try {
+      tributeImageUrl = `/api/files/${await saveUpload("tributes", img.type, Buffer.from(await img.arrayBuffer()))}`;
+    } catch (e) {
+      if (e instanceof UploadRejectedError) redirect("/give?error=" + encodeURIComponent(e.message));
+      throw e;
+    }
+  }
+
+  const { donationId } = await submitDonationClaim({ ...parsed.data, tributeImageUrl });
+
+  // Apply the public-wall opt-out to the resolved donor. (The shared claim service
+  // resolves/creates the Donor internally, so we set the flag here on the donor the
+  // gift landed on — whether newly created or reused.)
+  if (isAnonymous) {
+    const d = await prisma.donation.findUnique({ where: { id: donationId }, select: { donorId: true } });
+    if (d) await prisma.donor.update({ where: { id: d.donorId }, data: { isAnonymous: true } });
+  }
+
   redirect("/give?submitted=1");
 }

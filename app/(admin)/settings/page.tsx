@@ -54,7 +54,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold text-red-800">Year-end</h2>
-        <p className="text-xs text-slate-500">Deactivates every active student in one action (they re-enroll for the new session). Audited.</p>
+        <p className="text-xs text-slate-500">Manual action (no automatic cron): deactivates every active student in one click. Deactivated students immediately disappear from the public website until they re-enroll for the new session. Audited.</p>
         <form action={yearEndDeactivateAction} className="mt-2"><ConfirmSubmit className={btnDanger} message="Deactivate ALL active students? Every student will need to re-enroll for the new session. This is audited.">Run year-end deactivation</ConfirmSubmit></form>
       </section>
     </div>

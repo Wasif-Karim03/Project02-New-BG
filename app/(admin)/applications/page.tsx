@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { listPendingApplications } from "@/lib/services/application-review";
 import { approveApplicationAction, rejectApplicationAction } from "./actions";
-import { page, PageHeader, Card, EmptyState, btnPrimary, btnDanger, input } from "../_components/ui";
+import { page, PageHeader, Card, EmptyState, Notice, btnPrimary, btnDanger, input } from "../_components/ui";
 
-export default async function ApplicationsPage() {
+export default async function ApplicationsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
     redirect("/login?callbackUrl=/applications");
   }
+  const { ok, error } = await searchParams;
   const apps = await listPendingApplications();
 
   return (
@@ -18,6 +19,8 @@ export default async function ApplicationsPage() {
         title="Student applications"
         description="Email-verified applications awaiting review. Approving creates the student record and activates the account; rejecting requires a reason. Every decision is audited."
       />
+
+      <Notice ok={ok} error={error} />
 
       {apps.length === 0 ? (
         <EmptyState>No applications awaiting review.</EmptyState>

@@ -23,16 +23,31 @@ export class ReasonRequiredError extends Error {
 }
 
 /**
- * The ONE approval queue. Two kinds of items funnel here:
- *   - accounts: PENDING Users (donor/mentor/student self-signups)
+ * The Accounts approval queue. Two kinds of items funnel here:
+ *   - accounts: PENDING Users that belong in the ACCOUNTS queue only
  *   - loginlessStudents: PENDING Students with no User (mentor-registered)
- * Self-signup students are represented by their User (the account); approving the
- * account cascades to the linked Student, so they are not double-listed.
+ *
+ * IMPORTANT: a STUDENT/MENTOR self-signup creates a PENDING User *and* a
+ * Student/Mentor application. Those applicants must be approved ONLY through
+ * their dedicated application flow (the Applications / Mentor-applications
+ * queues), which builds the Student/Mentor profile. If they also appeared here,
+ * approving from the Accounts queue would flip the User to ACTIVE with no
+ * profile (and could approve an applicant before email verification). So we
+ * EXCLUDE any PENDING STUDENT/MENTOR user that has an application, leaving the
+ * Accounts queue to surface DONOR self-signups + genuinely account-only users.
  */
 export async function listPendingQueue() {
   const [accounts, loginlessStudents] = await Promise.all([
     prisma.user.findMany({
-      where: { status: "PENDING" },
+      where: {
+        status: "PENDING",
+        NOT: {
+          OR: [
+            { role: "STUDENT", applications: { some: {} } },
+            { role: "MENTOR", mentorApplications: { some: {} } },
+          ],
+        },
+      },
       select: { id: true, email: true, name: true, role: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     }),

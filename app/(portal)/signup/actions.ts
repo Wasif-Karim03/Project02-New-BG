@@ -2,28 +2,21 @@
 
 import { redirect } from "next/navigation";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { EmailInUseError, registerDonor, registerMentor } from "@/lib/services/accounts";
-import { donorSignupSchema, mentorSignupSchema } from "@/lib/validation/accounts";
+import { EmailInUseError, registerMentor } from "@/lib/services/accounts";
+import { mentorSignupSchema } from "@/lib/validation/accounts";
 
 function fail(role: string, message: string): never {
   redirect(`/signup?role=${role}&error=${encodeURIComponent(message)}`);
 }
 
-export async function signupDonorAction(formData: FormData) {
-  if (!(await checkRateLimit("signup", { max: 5, windowMs: 15 * 60 * 1000 }))) {
-    fail("donor", "Too many attempts. Please try again in a few minutes.");
-  }
-  const parsed = donorSignupSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) fail("donor", parsed.error.issues[0]?.message ?? "Invalid input");
-  let ok = false;
-  try {
-    await registerDonor(parsed.data);
-    ok = true;
-  } catch (e) {
-    if (e instanceof EmailInUseError) fail("donor", e.message);
-    throw e;
-  }
-  if (ok) redirect("/signup?status=pending&role=donor");
+/**
+ * Donors no longer go through admin approval here. The verified self-activation
+ * flow at /donor-signup (email code → ACTIVE, donate immediately) is strictly the
+ * better outcome, so this action just forwards donors there instead of creating a
+ * PENDING admin-approval donor. (The mentor path below is unchanged.)
+ */
+export async function signupDonorAction() {
+  redirect("/donor-signup");
 }
 
 export async function signupMentorAction(formData: FormData) {

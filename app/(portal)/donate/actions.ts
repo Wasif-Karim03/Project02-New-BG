@@ -16,7 +16,9 @@ export async function startCheckoutAction(formData: FormData) {
     amount: Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN,
     currency: "usd",
     designationType: String(formData.get("designationType") || "GENERAL"),
+    studentId: formData.get("studentId") || undefined,
     projectId: formData.get("projectId") || undefined,
+    donorName: formData.get("donorName") || undefined,
     donorEmail: formData.get("donorEmail") || undefined,
   });
   if (!parsed.success) redirect(`/donate?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid input")}`);

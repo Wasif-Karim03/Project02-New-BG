@@ -83,6 +83,7 @@ export async function getMentorApplication(id: string) {
 }
 
 export class MentorNotReviewableError extends Error { constructor() { super("Application is not awaiting review."); this.name = "MentorNotReviewableError"; } }
+export class ReasonRequiredError extends Error { constructor() { super("A reason is required to reject."); this.name = "ReasonRequiredError"; } }
 
 export async function approveMentorApplication(adminUserId: string, applicationId: string) {
   const result = await prisma.$transaction(async (tx) => {
@@ -104,12 +105,32 @@ export async function approveMentorApplication(adminUserId: string, applicationI
   return result.mentor;
 }
 
+/**
+ * Reject a mentor application (reason required). Mirrors the student
+ * `rejectApplication`: transactional, only an EMAIL_VERIFIED application is
+ * reviewable, and — per the workspace-wide rejection policy — REJECTED accounts
+ * STAY ABLE TO RE-APPLY: only the application moves to REJECTED; the User account
+ * is left PENDING so the person can submit a fresh application (a new DRAFT is
+ * created by getOrCreateMentorDraft). This is the same choice made for students.
+ * Audited.
+ */
 export async function rejectMentorApplication(adminUserId: string, applicationId: string, reason: string) {
-  const app = await prisma.mentorApplication.update({ where: { id: applicationId }, data: { status: "REJECTED", reviewedById: adminUserId, reviewedAt: new Date() } });
-  const user = await prisma.user.update({ where: { id: app.userId }, data: { status: "REJECTED" } });
-  await recordAudit(prisma, { actorUserId: adminUserId, action: "mentor.application.reject", entityType: "MentorApplication", entityId: applicationId, reason });
-  await sendDecisionEmail({ to: user.email, name: app.fullName ?? user.name, role: "MENTOR", approved: false });
-  return app;
+  if (!reason?.trim()) throw new ReasonRequiredError();
+  const result = await prisma.$transaction(async (tx) => {
+    const app = await tx.mentorApplication.findUnique({ where: { id: applicationId }, include: { user: { select: { email: true, name: true } } } });
+    if (!app || app.status !== "EMAIL_VERIFIED") throw new MentorNotReviewableError();
+    const updated = await tx.mentorApplication.update({
+      where: { id: applicationId },
+      data: { status: "REJECTED", reviewedById: adminUserId, reviewedAt: new Date() },
+    });
+    await recordAudit(tx, {
+      actorUserId: adminUserId, action: "mentor.application.reject", entityType: "MentorApplication", entityId: applicationId,
+      before: { status: "EMAIL_VERIFIED" }, after: { status: "REJECTED" }, reason: reason.trim(),
+    });
+    return { updated, email: app.user.email, name: app.fullName ?? app.user.name };
+  });
+  await sendDecisionEmail({ to: result.email, name: result.name, role: "MENTOR", approved: false });
+  return result.updated;
 }
 
 /** The mentor's own submitted profile (for the portal — read-only display). */

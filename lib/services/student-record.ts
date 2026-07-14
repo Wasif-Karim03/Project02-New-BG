@@ -42,8 +42,8 @@ export async function updateStudentRecord(adminUserId: string, studentId: string
     const updated = await prisma.student.update({ where: { id: studentId }, data: patch });
     await recordAudit(prisma, {
       actorUserId: adminUserId, action: "student.record.update", entityType: "Student", entityId: studentId,
-      before: { registrationId: before.registrationId, requireAmount: before.requireAmount, verified: before.verified },
-      after: { registrationId: updated.registrationId, requireAmount: updated.requireAmount, verified: updated.verified },
+      before: { firstName: before.firstName, registrationId: before.registrationId, schoolId: before.schoolId, requireAmount: before.requireAmount, verified: before.verified },
+      after: { firstName: updated.firstName, registrationId: updated.registrationId, schoolId: updated.schoolId, requireAmount: updated.requireAmount, verified: updated.verified },
     });
     return updated;
   } catch (e) {
@@ -99,9 +99,11 @@ export async function setStudentFlags(
 }
 
 /**
- * Year-end deactivation ("30 December all students are automatically deactivated").
- * Sets active=false on every currently-active student. Audited. Intended to be run
- * by a scheduled job on Dec 30 (cron wired at handoff); can also be triggered by an admin.
+ * Year-end deactivation. Sets active=false on every currently-active student.
+ * Because the public projection now requires active=true, deactivated students
+ * immediately drop off the public marketing site until they re-enroll for the new
+ * session. Audited. This is a MANUAL admin action — there is no cron/scheduler;
+ * an admin runs it from Settings or the Roster at year end.
  */
 export async function deactivateAllStudents(adminUserId: string | null): Promise<number> {
   const res = await prisma.student.updateMany({ where: { active: true }, data: { active: false } });

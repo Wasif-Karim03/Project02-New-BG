@@ -5,6 +5,16 @@ const t = z.string().trim().max(400).optional();
 
 // Admin-editable "backend record" fields on a Student.
 export const studentRecordSchema = z.object({
+  // Identity — correctable (misspelled name, wrong parent name, gender, school, bio).
+  firstName: z.string().trim().min(1, "First name is required").max(120).optional(),
+  fullName: t,
+  fatherName: t,
+  motherName: t,
+  gender: z.string().trim().max(40).optional(),
+  // null clears the school link; a cuid links to a School; omitted = unchanged.
+  // (The action maps an empty <select> value to null.)
+  schoolId: z.string().cuid().nullable().optional(),
+  bio: z.string().trim().max(2000).optional(),
   registrationId: z.string().trim().max(60).optional(),
   purpose: t,
   careerGoal: t,

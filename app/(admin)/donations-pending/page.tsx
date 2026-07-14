@@ -2,21 +2,24 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { listPendingDonations } from "@/lib/services/donation-claims";
 import { confirmDonationAction, declineDonationAction } from "./actions";
-import { page, PageHeader, Card, EmptyState, btnPrimary, btnDanger, input } from "../_components/ui";
+import { page, PageHeader, Card, EmptyState, Notice, btnPrimary, btnDanger, input } from "../_components/ui";
 import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
 const usd = (m: number, c = "USD") => new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format(m / 100);
 
-export default async function DonationsPendingPage() {
+export default async function DonationsPendingPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
     redirect("/login?callbackUrl=/donations-pending");
   }
+  const { ok, error } = await searchParams;
   const pending = await listPendingDonations();
 
   return (
     <div className={page}>
       <PageHeader title="Pending donations" description="Gifts donors reported sending (mobile banking / bank / cash). Verify the money arrived, then confirm — confirming counts it toward totals and emails a receipt. Declining requires a reason. All audited." />
+
+      <Notice ok={ok} error={error} />
 
       {pending.length === 0 ? (
         <EmptyState>No pending donations.</EmptyState>

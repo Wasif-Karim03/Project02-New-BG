@@ -18,6 +18,9 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
   const userId = await getApplicantUserId();
   if (!userId) redirect("/apply");
   const d = await getOrCreateDraft(userId) as Record<string, unknown>;
+  // Once the application is verified/approved it can't be edited or re-submitted.
+  // Don't render an editable form (submitting would only 500) — show the status page.
+  if (d.status === "EMAIL_VERIFIED" || d.status === "APPROVED") redirect("/apply/done");
   const { error } = await searchParams;
   const v = (k: string) => (d[k] as string) ?? "";
 
@@ -100,9 +103,14 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
                   server also enforces photoUrl via REQUIRED_TO_SUBMIT. */}
               <input type="file" name="photo" accept="image/*" required={!v("photoUrl")} className="mt-1.5 block w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-ground-3 file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-hairline" />
               {v("photoUrl") && <span className="mt-1 block text-xs font-medium text-accent">✓ uploaded — re-select to replace</span>}
+              <span className="mt-1 block text-xs text-ink-2">If you&apos;re selected, this photo may be displayed publicly (with a watermark) on your sponsorship page so donors can support you.</span>
             </label>
           </div>
-          <p className="mt-3 text-xs text-ink-2">JPEG, PNG, WebP, or PDF · up to 5 MB. Your documents are private — only staff and your mentor can view them.</p>
+          <p className="mt-3 text-xs text-ink-2">JPEG, PNG, WebP, or PDF · up to 5 MB. Your result sheet is private — only staff and your mentor can view it.</p>
+          <label className="mt-4 flex items-start gap-3 rounded-xl border border-hairline bg-ground-3/50 p-4 text-sm text-ink-2">
+            <input type="checkbox" name="photoConsent" required className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
+            <span>আমি সম্মতি দিচ্ছি যে নির্বাচিত হলে আমার ছবি (জলছাপসহ) আমার স্পনসরশিপ পেজে প্রকাশ করা যেতে পারে। / I consent to my photo being displayed publicly (with a watermark) on my sponsorship page if I&apos;m selected. *</span>
+          </label>
         </section>
 
         <label className="flex items-start gap-3 rounded-2xl border border-hairline bg-ground-3/50 p-5 text-sm text-ink-2">

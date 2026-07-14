@@ -34,7 +34,9 @@ export async function isPublicFile(fileUrl: string): Promise<boolean> {
     select: { portraitConsent: true, storyConsent: true, consentScopes: true, consentRevokedAt: true },
   });
   if (student && portraitVisible(student)) return true;
-  return (await prisma.donation.count({ where: { tributeImageUrl: fileUrl, tributePublic: true } })) > 0;
+  // Only a CONFIRMED (SUCCEEDED) public tribute is served openly — a PENDING or
+  // declined claim must not earn free public image hosting before it's verified.
+  return (await prisma.donation.count({ where: { tributeImageUrl: fileUrl, tributePublic: true, status: "SUCCEEDED" } })) > 0;
 }
 
 type Viewer = { id: string; role: string } | undefined;

@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/services/settings";
 import { submitClaimAction } from "./actions";
@@ -52,12 +53,18 @@ export default async function GivePage({ searchParams }: { searchParams: SearchP
           </label>
           <label className={lbl}>Transaction ID / reference<input name="reference" placeholder="e.g. bKash TrxID" className={f} /></label>
           <label className={lbl}>Designation
-            <select name="designationType" className={f} defaultValue="GENERAL"><option value="GENERAL">Where needed most</option><option value="STUDENT">A student</option><option value="PROJECT">A project</option></select>
+            <select id="designationType" name="designationType" className={f} defaultValue="GENERAL"><option value="GENERAL">Where needed most</option><option value="STUDENT">A student</option><option value="PROJECT">A project</option></select>
           </label>
-          {students.length > 0 && <label className={lbl}>Student (if applicable)<select name="studentId" className={f} defaultValue=""><option value="">—</option>{students.map((s) => <option key={s.id} value={s.id}>{s.firstName}</option>)}</select></label>}
-          {projects.length > 0 && <label className={lbl}>Project (if applicable)<select name="projectId" className={f} defaultValue=""><option value="">—</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label>}
+          {/* Student/Project selectors are coupled to the designation: only the one
+              matching the chosen designation is shown + enabled (a disabled control
+              isn't submitted), so the "STUDENT and PROJECT both set" combo the server
+              rejects can't be produced. Hidden by default (GENERAL). */}
+          {students.length > 0 && <label id="giveStudentField" hidden className={lbl}>Student<select id="studentId" name="studentId" disabled className={f} defaultValue=""><option value="">Choose a student…</option>{students.map((s) => <option key={s.id} value={s.id}>{s.firstName}</option>)}</select></label>}
+          {projects.length > 0 && <label id="giveProjectField" hidden className={lbl}>Project<select id="projectId" name="projectId" disabled className={f} defaultValue=""><option value="">Choose a project…</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label>}
         </div>
+        <p className="text-xs text-black/50">Leaving email blank means we can&apos;t email you a receipt or link this gift to your donor account.</p>
         <label className={lbl}>Note (optional)<input name="note" className={f} /></label>
+        <label className="flex items-center gap-2 text-sm text-black/70"><input type="checkbox" name="isAnonymous" /> List me anonymously (hide my name and amount on the public wall)</label>
 
         <details className="rounded-lg border border-black/10 p-4">
           <summary className="cursor-pointer text-sm font-semibold text-black/70">Dedicate this gift (optional)</summary>
@@ -70,11 +77,35 @@ export default async function GivePage({ searchParams }: { searchParams: SearchP
             <label className={`${lbl} sm:col-span-2`}>Message (optional)<textarea name="tributeMessage" rows={2} className={f} /></label>
             <label className={`${lbl} sm:col-span-2`}>Photo (optional)<input type="file" name="tributeImage" accept="image/*" className="mt-1 block w-full text-sm" /></label>
           </div>
-          <label className="mt-2 flex items-center gap-2 text-sm text-black/70"><input type="checkbox" name="tributePublic" /> Show this tribute publicly on our tribute wall</label>
+          {/* NOTE: The public "tribute wall" page doesn't exist yet, so we don't offer
+              a "show publicly" opt-in here (it would promise a page we don't render).
+              Dedications stay private to the org. A public tribute wall can be built
+              later; when it is, re-add a `tributePublic` opt-in and render the wall. */}
         </details>
 
         <button type="submit" className="mt-1 rounded bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-black/85">Submit my gift</button>
       </form>
+
+      {/* Couple the designation dropdown to its target selector (client-side). */}
+      <Script id="give-designation-sync" strategy="afterInteractive">{`
+        (function () {
+          var sel = document.getElementById('designationType');
+          if (!sel) return;
+          var sf = document.getElementById('giveStudentField');
+          var pf = document.getElementById('giveProjectField');
+          var ss = document.getElementById('studentId');
+          var ps = document.getElementById('projectId');
+          function sync() {
+            var v = sel.value;
+            if (sf) sf.hidden = v !== 'STUDENT';
+            if (ss) { ss.disabled = v !== 'STUDENT'; if (v !== 'STUDENT') ss.value = ''; }
+            if (pf) pf.hidden = v !== 'PROJECT';
+            if (ps) { ps.disabled = v !== 'PROJECT'; if (v !== 'PROJECT') ps.value = ''; }
+          }
+          sel.addEventListener('change', sync);
+          sync();
+        })();
+      `}</Script>
 
       <p className="mt-6 text-center text-sm text-black/60">
         Want to track your donations and see the students you support?{" "}

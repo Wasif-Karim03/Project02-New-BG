@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { listMentorApplications } from "@/lib/services/mentor-applications";
-import { Badge, Card, EmptyState, PageHeader, btnDanger, btnPrimary, input, page } from "../_components/ui";
+import { Badge, Card, EmptyState, Notice, PageHeader, btnDanger, btnPrimary, input, page } from "../_components/ui";
 import { approveMentorAction, rejectMentorAction } from "./actions";
 
 const FIELDS: { key: string; label: string }[] = [
@@ -10,14 +10,17 @@ const FIELDS: { key: string; label: string }[] = [
   { key: "languages", label: "Languages" }, { key: "availability", label: "Availability" }, { key: "howHeard", label: "Heard via" },
 ];
 
-export default async function MentorApplicationsPage() {
+export default async function MentorApplicationsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") redirect("/login?callbackUrl=/mentor-applications");
+  const { ok, error } = await searchParams;
   const apps = await listMentorApplications();
 
   return (
     <div className={page}>
       <PageHeader title="Mentor applications" description="People who applied to mentor and verified their email. Approve to create their mentor account (they can then sign in). All actions are audited." />
+
+      <Notice ok={ok} error={error} />
 
       {apps.length === 0 ? (
         <EmptyState>No mentor applications awaiting review.</EmptyState>
