@@ -87,8 +87,10 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
             <input type="file" name="resultSheet" accept="image/*,application/pdf" className="mt-1 block w-full text-sm" />
             {v("resultSheetUrl") && <span className="text-xs text-green-700">✓ uploaded — re-select to replace</span>}
           </label>
-          <label className={lbl}>Your photo (school uniform is fine)
-            <input type="file" name="photo" accept="image/*" className="mt-1 block w-full text-sm" />
+          <label className={lbl}>Your photo (school uniform is fine) *
+            {/* Required, unless a photo was already uploaded on a prior save. The
+                server also enforces photoUrl via REQUIRED_TO_SUBMIT. */}
+            <input type="file" name="photo" accept="image/*" required={!v("photoUrl")} className="mt-1 block w-full text-sm" />
             {v("photoUrl") && <span className="text-xs text-green-700">✓ uploaded — re-select to replace</span>}
           </label>
         </div>

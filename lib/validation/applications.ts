@@ -30,8 +30,9 @@ export const applicationDraftSchema = z.object({
 
 export type ApplicationDraftInput = z.infer<typeof applicationDraftSchema>;
 
-// Fields that MUST be present to submit (validated in the service).
+// Fields that MUST be present to submit (validated in the service). photoUrl is
+// required: every applicant must include a photo (it becomes their portrait).
 export const REQUIRED_TO_SUBMIT = [
   "nameEn", "fatherNameEn", "motherNameEn", "familyMobile", "gender",
-  "schoolName", "currentClass", "addrDistrict",
+  "schoolName", "currentClass", "addrDistrict", "photoUrl",
 ] as const;
