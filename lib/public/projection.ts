@@ -255,14 +255,21 @@ export async function projectProjectBySlug(slug: string): Promise<PublicProject 
 }
 
 export async function projectStats(): Promise<PublicStats> {
-  const [studentCount, schoolCount, distinctDonors, totalAgg] = await Promise.all([
-    prisma.student.count({ where: { status: "ACTIVE" } }),
-    prisma.school.count(),
+  // Count only PUBLICLY-VISIBLE students — the SAME filter as projectStudents() — so
+  // the homepage "students" number never exceeds the directory a visitor can browse.
+  // schoolCount is the distinct schools those visible students attend (not every
+  // seeded School row), so a fresh site never advertises schools with no live student.
+  const [visibleStudents, distinctDonors, totalAgg] = await Promise.all([
+    prisma.student.findMany({
+      where: { status: "ACTIVE", active: true, slug: { not: null }, showOnWebsite: true },
+      select: { schoolId: true },
+    }),
     prisma.donation.findMany({ where: { status: "SUCCEEDED" }, select: { donorId: true }, distinct: ["donorId"] }),
     prisma.donation.aggregate({ where: { status: "SUCCEEDED" }, _sum: { amount: true, refundedAmount: true } }),
   ]);
+  const schoolCount = new Set(visibleStudents.map((s) => s.schoolId).filter((id): id is string => Boolean(id))).size;
   return {
-    studentCount,
+    studentCount: visibleStudents.length,
     schoolCount,
     donorCount: distinctDonors.length,
     totalRaised: Math.max(0, (totalAgg._sum.amount ?? 0) - (totalAgg._sum.refundedAmount ?? 0)),
