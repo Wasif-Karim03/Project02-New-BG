@@ -21,7 +21,7 @@ function check(label: string, ok: boolean, detail = "") { console.log(`  ${ok ? 
 async function expectThrow(label: string, ErrType: new (...a: never[]) => Error, fn: () => Promise<unknown>) {
   try { await fn(); check(label, false, "expected an error"); } catch (e) { check(label, e instanceof ErrType, e instanceof ErrType ? "" : `wrong: ${(e as Error)?.name}`); }
 }
-const REQUIRED = { nameEn: "RIMA AKTER", fatherNameEn: "Karim", motherNameEn: "Fatima", familyMobile: "017xxxxxxxx", gender: "female" as const, schoolName: "Rangamati Govt School", currentClass: "8", addrDistrict: "Rangamati", agreedTerms: true };
+const REQUIRED = { nameEn: "RIMA AKTER", fatherNameEn: "Karim", motherNameEn: "Fatima", familyMobile: "017xxxxxxxx", gender: "female" as const, schoolName: "Rangamati Govt School", currentClass: "8", addrDistrict: "Rangamati", photoUrl: "/api/files/applications/test-photo.jpg", agreedTerms: true };
 const admin = async () => (await prisma.user.findUniqueOrThrow({ where: { email: "admin@bridginggenerations.org" } })).id;
 
 async function applyAndVerify(tag: string) {
