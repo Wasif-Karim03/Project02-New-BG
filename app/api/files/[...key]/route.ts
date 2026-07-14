@@ -28,7 +28,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     if (isPublic && contentType.startsWith("image/")) {
       try {
         bytes = await watermarkImage(bytes);
-        contentType = "image/png";
+        contentType = "image/jpeg";
       } catch {
         /* keep original bytes on any watermarking failure */
       }
