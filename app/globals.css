@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
 :root {
+  /* This is an admin/ops tool designed for light mode (white cards, dark text).
+     Force light regardless of the device's dark-mode setting — otherwise the base
+     colors invert and inputs/labels become invisible. color-scheme:light also
+     keeps native form controls (inputs, selects, scrollbars) light. */
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
 }
@@ -10,13 +15,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
