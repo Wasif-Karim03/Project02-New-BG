@@ -68,8 +68,30 @@ export async function upsertStudentSession(adminUserId: string, studentId: strin
 }
 
 /** Verified/active toggles. Audited. */
-export async function setStudentFlags(adminUserId: string, studentId: string, flags: { verified?: boolean; active?: boolean; showOnWebsite?: boolean }) {
-  const updated = await prisma.student.update({ where: { id: studentId }, data: flags });
+export async function setStudentFlags(
+  adminUserId: string,
+  studentId: string,
+  flags: { verified?: boolean; active?: boolean; showOnWebsite?: boolean; showPhoto?: boolean },
+) {
+  const { showPhoto, ...rest } = flags;
+  const data: Prisma.StudentUpdateInput = { ...rest };
+  // "showPhoto" maps to the portrait-consent gate (minors' images): granting it
+  // marks portrait consent GRANTED, ensures the WEBSITE scope, and clears any
+  // revocation; ungranting sets it back to PENDING so the photo goes private.
+  if (showPhoto !== undefined) {
+    if (showPhoto) {
+      const s = await prisma.student.findUnique({ where: { id: studentId }, select: { consentScopes: true } });
+      if (!s) throw new NotFoundError();
+      const scopes = new Set(s.consentScopes);
+      scopes.add("WEBSITE");
+      data.portraitConsent = "GRANTED";
+      data.consentScopes = { set: [...scopes] };
+      data.consentRevokedAt = null;
+    } else {
+      data.portraitConsent = "PENDING";
+    }
+  }
+  const updated = await prisma.student.update({ where: { id: studentId }, data });
   await recordAudit(prisma, {
     actorUserId: adminUserId, action: "student.flags.set", entityType: "Student", entityId: studentId, after: flags,
   });

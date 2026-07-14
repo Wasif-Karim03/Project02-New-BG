@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { portraitVisible } from "@/lib/public/consent";
 import { getStudentRecord } from "@/lib/services/student-record";
 import { setFlagsAction, updateRecordAction, upsertSessionAction } from "../actions";
 import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, input, label } from "../../_components/ui";
@@ -36,6 +37,11 @@ export default async function RosterEditPage({ params, searchParams }: { params:
             <input type="hidden" name="studentId" value={s.id} />
             <input type="hidden" name="showOnWebsite" value={(!s.showOnWebsite).toString()} />
             <button title="Controls whether this student appears in the public website's student directory" className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${s.showOnWebsite ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{s.showOnWebsite ? "🌐 on website ✓" : "🌐 hidden from website"}</button>
+          </form>
+          <form action={setFlagsAction}>
+            <input type="hidden" name="studentId" value={s.id} />
+            <input type="hidden" name="showPhoto" value={(!portraitVisible(s)).toString()} />
+            <button title="Consent to display this student's photo publicly (minors' images). Off = only the initial shows." className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${portraitVisible(s) ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{portraitVisible(s) ? "📷 photo shown ✓" : "📷 photo hidden"}</button>
           </form>
         </div>
       </PageHeader>

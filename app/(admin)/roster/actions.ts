@@ -70,6 +70,7 @@ export async function setFlagsAction(formData: FormData) {
     verified: formData.get("verified") != null ? formData.get("verified") === "true" : undefined,
     active: formData.get("active") != null ? formData.get("active") === "true" : undefined,
     showOnWebsite: formData.get("showOnWebsite") != null ? formData.get("showOnWebsite") === "true" : undefined,
+    showPhoto: formData.get("showPhoto") != null ? formData.get("showPhoto") === "true" : undefined,
   });
   revalidatePath(`/roster/${id}`);
 }
