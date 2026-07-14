@@ -17,7 +17,7 @@ export class ReasonRequiredError extends Error {
 export async function listPendingApplications() {
   return prisma.studentApplication.findMany({
     where: { status: "EMAIL_VERIFIED" },
-    select: { id: true, nameEn: true, schoolName: true, addrDistrict: true, emailVerifiedAt: true, user: { select: { email: true } } },
+    select: { id: true, nameEn: true, schoolName: true, addrDistrict: true, photoUrl: true, emailVerifiedAt: true, user: { select: { email: true } } },
     orderBy: { emailVerifiedAt: "asc" },
   });
 }
