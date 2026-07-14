@@ -91,8 +91,8 @@ export async function approveMentorApplication(adminUserId: string, applicationI
     if (!app) throw new MentorNotReviewableError();
     const mentor = await tx.mentor.upsert({
       where: { userId: app.userId },
-      create: { userId: app.userId, phone: app.phone, bio: app.motivation },
-      update: { phone: app.phone, bio: app.motivation },
+      create: { userId: app.userId, phone: app.phone, bio: app.motivation, photoUrl: app.photoUrl },
+      update: { phone: app.phone, bio: app.motivation, photoUrl: app.photoUrl },
     });
     await tx.user.update({ where: { id: app.userId }, data: { status: "ACTIVE", reviewedById: adminUserId, reviewedAt: new Date() } });
     await tx.mentorApplication.update({ where: { id: applicationId }, data: { status: "APPROVED", mentorId: mentor.id, reviewedById: adminUserId, reviewedAt: new Date() } });

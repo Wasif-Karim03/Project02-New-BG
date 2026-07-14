@@ -16,13 +16,14 @@ export const mentorApplicationDraftSchema = z.object({
   motivation: s(),
   availability: s(),
   howHeard: s(),
+  photoUrl: s(), // profile picture (set from the upload; required to submit)
   agreedTerms: z.boolean().optional(),
 });
 
 export type MentorApplicationDraft = z.infer<typeof mentorApplicationDraftSchema>;
 
 // Fields required before a mentor application can be submitted for verification.
-export const MENTOR_REQUIRED_TO_SUBMIT = ["fullName", "phone", "profession", "country", "motivation"] as const;
+export const MENTOR_REQUIRED_TO_SUBMIT = ["fullName", "phone", "profession", "country", "motivation", "photoUrl"] as const;
 
 export const MENTOR_FIELDS: { key: keyof MentorApplicationDraft; label: string; multiline?: boolean }[] = [
   { key: "fullName", label: "Full name" },

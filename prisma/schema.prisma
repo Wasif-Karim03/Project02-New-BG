@@ -299,8 +299,9 @@ model Mentor {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  phone String?
-  bio   String?
+  phone    String?
+  bio      String?
+  photoUrl String? // profile picture (from the application)
 
   assignments  MentorAssignment[]
   evaluations  StudentEvaluation[]
@@ -342,6 +343,7 @@ model MentorApplication {
   motivation   String? // why they want to mentor
   availability String? // e.g. hours per week
   howHeard     String?
+  photoUrl     String? // profile picture — required to submit
   agreedTerms  Boolean @default(false)
 
   createdAt DateTime @default(now())
