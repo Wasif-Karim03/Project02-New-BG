@@ -438,6 +438,9 @@ model Student {
   targetPeriod     String? // e.g. "2026" or "2026-01"
   verified         Boolean      @default(false)
   active           Boolean      @default(true)
+  // Admin control: is this student shown in the public marketing site's student
+  // directory? Defaults to true (approved students appear), admin can hide any.
+  showOnWebsite    Boolean      @default(true)
 
   // creation/approval audit (ids reference User.id)
   createdById  String?
