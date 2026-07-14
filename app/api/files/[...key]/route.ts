@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { canViewFile, isPublicFile } from "@/lib/services/file-access";
 import { readUpload } from "@/lib/storage";
+import { watermarkImage } from "@/lib/watermark";
 
 // File serving. Uploaded documents (result sheets, non-consented photos) are
 // minors' PII, so every request is authorized before a byte is returned. The
@@ -20,7 +21,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
   }
 
   try {
-    const { bytes, contentType } = await readUpload(keyStr);
+    let { bytes, contentType } = await readUpload(keyStr);
+    // Public portrait/tribute images are served with a "BG" watermark burned into
+    // the bytes (so it can't be stripped by saving the raw file). Falls back to the
+    // original if watermarking fails. Private docs are never touched.
+    if (isPublic && contentType.startsWith("image/")) {
+      try {
+        bytes = await watermarkImage(bytes);
+        contentType = "image/png";
+      } catch {
+        /* keep original bytes on any watermarking failure */
+      }
+    }
     // Public files get a short shared cache (CDN) so revocation propagates fast;
     // private files are never cached anywhere.
     const cacheControl = isPublic ? "public, max-age=300, s-maxage=300" : "private, no-store";
