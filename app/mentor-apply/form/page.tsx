@@ -37,6 +37,21 @@ export default async function MentorApplyFormPage({ searchParams }: { searchPara
               </label>
             ),
           )}
+          <label className={`${lbl} sm:col-span-2`}>
+            Profile picture *
+            {/* Required, unless one was already uploaded on a prior save. The server
+                also enforces photoUrl via MENTOR_REQUIRED_TO_SUBMIT. */}
+            <input
+              type="file"
+              name="photo"
+              accept="image/*"
+              required={!v("photoUrl")}
+              className="mt-1.5 block w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-accent-2 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-accent-2-hover"
+            />
+            {v("photoUrl") ? (
+              <span className="mt-1 block text-xs text-emerald-700">✓ uploaded — choose a new file to replace</span>
+            ) : null}
+          </label>
           <label className="flex items-center gap-3 text-sm text-ink-2 sm:col-span-2">
             <input type="checkbox" name="agreedTerms" defaultChecked={draft.agreedTerms} className="h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" /> I confirm the information is accurate and agree to be contacted.
           </label>

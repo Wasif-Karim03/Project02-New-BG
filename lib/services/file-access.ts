@@ -10,6 +10,11 @@ export async function fileOwnerUserId(fileUrl: string): Promise<string | null> {
   if (app) return app.userId;
   const student = await prisma.student.findFirst({ where: { portraitUrl: fileUrl }, select: { userId: true } });
   if (student) return student.userId;
+  // Mentor profile pictures belong to the mentor (application or approved record).
+  const mentorApp = await prisma.mentorApplication.findFirst({ where: { photoUrl: fileUrl }, select: { userId: true } });
+  if (mentorApp) return mentorApp.userId;
+  const mentor = await prisma.mentor.findFirst({ where: { photoUrl: fileUrl }, select: { userId: true } });
+  if (mentor) return mentor.userId;
   // Tribute images belong to the donor who submitted the gift.
   const tribute = await prisma.donation.findFirst({ where: { tributeImageUrl: fileUrl }, select: { donor: { select: { userId: true } } } });
   return tribute?.donor.userId ?? null;

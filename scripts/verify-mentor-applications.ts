@@ -31,7 +31,7 @@ async function main() {
   check("applicant user is MENTOR + PENDING", u?.role === "MENTOR" && u?.status === "PENDING");
   await expectThrow("submit before required fields is refused", MentorMissingFieldsError, () => submitMentorApplication(userId));
 
-  await saveMentorDraft(userId, { fullName: "Test Mentor", phone: "0170000000", profession: "Teacher", country: "Bangladesh", motivation: "I want to help students learn.", agreedTerms: true });
+  await saveMentorDraft(userId, { fullName: "Test Mentor", phone: "0170000000", profession: "Teacher", country: "Bangladesh", motivation: "I want to help students learn.", photoUrl: "/api/files/mentors/test-photo.jpg", agreedTerms: true });
   const { devCode } = await submitMentorApplication(userId);
   check("submit returns a dev code + status SUBMITTED", !!devCode && (await prisma.mentorApplication.findFirst({ where: { userId } }))?.status === "SUBMITTED");
 
