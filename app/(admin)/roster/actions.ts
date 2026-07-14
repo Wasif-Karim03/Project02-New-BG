@@ -69,6 +69,7 @@ export async function setFlagsAction(formData: FormData) {
   await setStudentFlags(admin.id, id, {
     verified: formData.get("verified") != null ? formData.get("verified") === "true" : undefined,
     active: formData.get("active") != null ? formData.get("active") === "true" : undefined,
+    showOnWebsite: formData.get("showOnWebsite") != null ? formData.get("showOnWebsite") === "true" : undefined,
   });
   revalidatePath(`/roster/${id}`);
 }

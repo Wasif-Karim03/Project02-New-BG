@@ -68,7 +68,7 @@ export async function upsertStudentSession(adminUserId: string, studentId: strin
 }
 
 /** Verified/active toggles. Audited. */
-export async function setStudentFlags(adminUserId: string, studentId: string, flags: { verified?: boolean; active?: boolean }) {
+export async function setStudentFlags(adminUserId: string, studentId: string, flags: { verified?: boolean; active?: boolean; showOnWebsite?: boolean }) {
   const updated = await prisma.student.update({ where: { id: studentId }, data: flags });
   await recordAudit(prisma, {
     actorUserId: adminUserId, action: "student.flags.set", entityType: "Student", entityId: studentId, after: flags,

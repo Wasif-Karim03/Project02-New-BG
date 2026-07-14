@@ -170,7 +170,7 @@ async function studentRaisedMap(): Promise<Map<string, number>> {
 export async function projectStudents(): Promise<PublicStudent[]> {
   const sid = await currentSessionId();
   const [students, sessions, sponsored, raised] = await Promise.all([
-    prisma.student.findMany({ where: { status: "ACTIVE", slug: { not: null } }, select: studentSelect, orderBy: { firstName: "asc" } }),
+    prisma.student.findMany({ where: { status: "ACTIVE", slug: { not: null }, showOnWebsite: true }, select: studentSelect, orderBy: { firstName: "asc" } }),
     sid ? prisma.studentSession.findMany({ where: { sessionId: sid }, select: { studentId: true, grade: true } }) : Promise.resolve([] as { studentId: string; grade: string | null }[]),
     sponsoredStudentIds(sid),
     studentRaisedMap(),
@@ -180,7 +180,7 @@ export async function projectStudents(): Promise<PublicStudent[]> {
 }
 
 export async function projectStudentBySlug(slug: string): Promise<PublicStudent | null> {
-  const s = await prisma.student.findFirst({ where: { slug, status: "ACTIVE" }, select: studentSelect });
+  const s = await prisma.student.findFirst({ where: { slug, status: "ACTIVE", showOnWebsite: true }, select: studentSelect });
   if (!s) return null;
   const sid = await currentSessionId();
   const [session, sponsored, raised] = await Promise.all([
@@ -193,7 +193,7 @@ export async function projectStudentBySlug(slug: string): Promise<PublicStudent 
 
 export async function projectStudentDetail(slug: string): Promise<PublicStudentDetail | null> {
   const s = await prisma.student.findFirst({
-    where: { slug, status: "ACTIVE" },
+    where: { slug, status: "ACTIVE", showOnWebsite: true },
     select: {
       ...studentSelect,
       fullName: true, gender: true, fatherProfession: true, motherProfession: true,
