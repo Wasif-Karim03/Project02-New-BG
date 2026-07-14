@@ -26,9 +26,20 @@ export default async function MentorApplicationsPage() {
           {apps.map((a) => (
             <Card key={a.id} className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-base font-semibold text-slate-900">{a.fullName ?? a.user.name ?? "—"}</div>
-                  <div className="text-xs text-slate-500">{a.user.email}</div>
+                <div className="flex items-center gap-4">
+                  {a.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- admin-only auth-gated same-origin profile photo
+                    <img src={a.photoUrl} alt="" className="h-20 w-20 shrink-0 rounded-full border border-slate-200 object-cover" />
+                  ) : (
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl font-semibold text-slate-500">{(a.fullName ?? a.user.name ?? "?").charAt(0).toUpperCase()}</div>
+                  )}
+                  <div>
+                    <div className="text-base font-semibold text-slate-900">{a.fullName ?? a.user.name ?? "—"}</div>
+                    <div className="text-xs text-slate-500">{a.user.email}</div>
+                    {a.photoUrl ? (
+                      <a href={a.photoUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-slate-500 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500">Open full size</a>
+                    ) : null}
+                  </div>
                 </div>
                 <Badge tone="amber">Verified · awaiting review</Badge>
               </div>
