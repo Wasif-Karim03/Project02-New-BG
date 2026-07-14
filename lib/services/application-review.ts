@@ -1,3 +1,4 @@
+import type { ConsentScope } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/services/audit";
 import { generateUniqueStudentSlug } from "@/lib/slug";
@@ -88,6 +89,11 @@ export async function approveApplication(adminUserId: string, applicationId: str
       tutorPhone: app.tutorPhone,
       careerGoal: app.careerGoal,
       portraitUrl: app.photoUrl,
+      // Show the photo on the public site by default (it's served with a burned-in
+      // watermark). Admin can hide it per-student via the record's photo toggle.
+      portraitConsent: "GRANTED" as const,
+      consentScopes: ["WEBSITE"] as ConsentScope[],
+      consentRevokedAt: null,
       reviewedById: adminUserId,
       reviewedAt: new Date(),
     };
