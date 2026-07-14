@@ -6,19 +6,27 @@
      colors invert and inputs/labels become invisible. color-scheme:light also
      keeps native form controls (inputs, selects, scrollbars) light. */
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  /* Warm editorial palette, matched to the sibling marketing site. */
+  --color-ground: #f5f1ea;
+  --color-ground-2: #ffffff;
+  --color-ground-3: #efe7d8;
+  --color-ink: #1e1e1e;
+  --color-ink-2: #5c5c5c;
+  --color-hairline: #ddd6c7;
+  --color-accent: #0f4c5c;
+  --color-accent-2: #e76f51;
+  --color-accent-2-hover: #d85a3a;
+  --color-accent-2-text: #b5462b;
+  --color-accent-3: #ffb84d;
+
+  --font-sans: var(--font-jakarta, system-ui, sans-serif);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
 }
