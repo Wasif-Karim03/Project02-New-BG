@@ -17,7 +17,7 @@ export default async function RosterPage() {
     <div className={page}>
       <PageHeader
         title="Student roster"
-        description="All student records. Click one to edit its backend record (registration, funding plan, per-session education, contacts, verified/active). Year-end deactivation flips every active student to inactive (runs automatically on Dec 30 once the cron is wired)."
+        description="All student records. Click one to edit its backend record (registration, funding plan, per-session education, contacts, verified/active). Year-end deactivation is a manual admin action that flips every active student to inactive and hides them from the public website until they re-enroll — there is no automatic cron; you run it here or in Settings."
       >
         <form action={deactivateAllAction}>
           <ConfirmSubmit className={btnDanger} message="Deactivate ALL active students? Every student will need to re-enroll for the new session. This is audited.">Run year-end deactivation</ConfirmSubmit>

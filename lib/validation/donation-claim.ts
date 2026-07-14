@@ -25,6 +25,9 @@ export const donationClaimSchema = z
     tributeMessage: z.string().trim().max(600).optional(),
     tributeImageUrl: z.string().trim().max(500).optional(),
     tributePublic: z.boolean().optional(),
+    // Public thank-you wall opt-out. Default OFF (donors are listed by name by
+    // default — the org's chosen default); true hides the donor's name and amount.
+    isAnonymous: z.boolean().optional(),
   })
   .refine(
     (v) =>

@@ -1,27 +1,48 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { listAuditActions, listAuditLog } from "@/lib/services/audit-log";
+import { listAuditActions, listAuditLogPage } from "@/lib/services/audit-log";
 import { page, PageHeader, Card, EmptyState, btnSecondary, input, label } from "../_components/ui";
 
-type SearchParams = Promise<{ action?: string }>;
+type SearchParams = Promise<{ action?: string; from?: string; to?: string; page?: string }>;
 
 export default async function AuditPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") redirect("/login?callbackUrl=/audit");
-  const { action } = await searchParams;
-  const [entries, actions] = await Promise.all([listAuditLog({ action: action || undefined }), listAuditActions()]);
+  const { action, from, to, page: pageParam } = await searchParams;
+  const pageNum = Math.max(Number(pageParam) || 1, 1);
+  const [result, actions] = await Promise.all([
+    listAuditLogPage({ action: action || undefined, from: from || undefined, to: to || undefined, page: pageNum }),
+    listAuditActions(),
+  ]);
+  const { entries, hasMore } = result;
+
+  // Preserve filters across pagination links.
+  const pageHref = (p: number) => {
+    const q = new URLSearchParams();
+    if (action) q.set("action", action);
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    if (p > 1) q.set("page", String(p));
+    const s = q.toString();
+    return s ? `/audit?${s}` : "/audit";
+  };
 
   return (
     <div className={page}>
-      <PageHeader title="Audit log" description="Every consequential action — approvals, money, edits, access — with who and when. Most recent first (last 200)." />
+      <PageHeader title="Audit log" description="Every consequential action — approvals, money, edits, access — with who and when. Most recent first. Use the date range and page controls to reach older entries." />
 
-      <form method="get" className="flex items-center gap-2 text-sm">
-        <label className={label}>Filter</label>
-        <select name="action" defaultValue={action ?? ""} className={input}>
-          <option value="">All actions</option>
-          {actions.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
+      <form method="get" className="flex flex-wrap items-end gap-2 text-sm">
+        <label className={label}>Action
+          <select name="action" defaultValue={action ?? ""} className={`mt-1 ${input}`}>
+            <option value="">All actions</option>
+            {actions.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </label>
+        <label className={label}>From<input type="date" name="from" defaultValue={from ?? ""} className={`mt-1 ${input}`} /></label>
+        <label className={label}>To<input type="date" name="to" defaultValue={to ?? ""} className={`mt-1 ${input}`} /></label>
         <button className={btnSecondary}>Apply</button>
+        {(action || from || to) && <Link href="/audit" className={btnSecondary}>Clear</Link>}
       </form>
 
       <Card className="mt-4 overflow-hidden">
@@ -44,6 +65,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           </table>
         )}
       </Card>
+
+      <div className="mt-4 flex items-center justify-between text-sm">
+        {pageNum > 1 ? <Link href={pageHref(pageNum - 1)} className={btnSecondary}>← Newer</Link> : <span />}
+        <span className="text-slate-400">Page {pageNum}</span>
+        {hasMore ? <Link href={pageHref(pageNum + 1)} className={btnSecondary}>Older →</Link> : <span />}
+      </div>
     </div>
   );
 }

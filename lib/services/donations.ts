@@ -17,18 +17,51 @@ export type StripeCheckoutData = {
 
 class UntrustedWebhookError extends Error {}
 
-/** Match a guest to an existing account by VERIFIED email only; else guest donor. */
-export async function resolveDonor(db: Db, email: string | null | undefined, name: string | null | undefined) {
+/**
+ * Resolve the Donor a gift belongs to, matching by email so an approved/registered
+ * donor's gifts land on THEIR account (visible in their dashboard) and guest gifts
+ * never fragment into duplicate donor rows. Resolution order:
+ *   1. an existing Donor already linked to a User (userId set) with this email —
+ *      returned as-is; this is the account row, matched regardless of the account's
+ *      emailVerified flag (account-linking, not authentication);
+ *   2. a User with this email but no Donor row yet — create/return their linked Donor;
+ *   3. an existing guest Donor with this email — REUSE it (earliest) instead of
+ *      creating a duplicate (mirrors the offline/legacy paths);
+ *   4. otherwise create a fresh guest Donor.
+ * `opts.isAnonymous` (public-wall opt-out) is applied only when a NEW donor row is
+ * created; an existing donor keeps its standing preference.
+ */
+export async function resolveDonor(
+  db: Db,
+  email: string | null | undefined,
+  name: string | null | undefined,
+  opts?: { isAnonymous?: boolean },
+) {
   const normalized = email?.trim().toLowerCase();
   if (normalized) {
-    const user = await db.user.findFirst({ where: { email: normalized, emailVerified: { not: null } } });
+    // 1. The donor's own account row (already linked to a User).
+    const linked = await db.donor.findFirst({
+      where: { email: normalized, userId: { not: null } },
+      orderBy: { createdAt: "asc" },
+    });
+    if (linked) return linked;
+
+    // 2. A User exists for this email but has no Donor row yet — link one.
+    const user = await db.user.findFirst({ where: { email: normalized } });
     if (user) {
       const existing = await db.donor.findUnique({ where: { userId: user.id } });
       if (existing) return existing;
-      return db.donor.create({ data: { userId: user.id, name: name ?? user.name ?? "Donor", email: normalized } });
+      return db.donor.create({
+        data: { userId: user.id, name: name ?? user.name ?? "Donor", email: normalized, isAnonymous: opts?.isAnonymous ?? false },
+      });
     }
+
+    // 3. Reuse an existing guest donor row for this email (no duplicates).
+    const guest = await db.donor.findFirst({ where: { email: normalized }, orderBy: { createdAt: "asc" } });
+    if (guest) return guest;
   }
-  return db.donor.create({ data: { userId: null, name: name ?? "Donor", email: normalized } });
+  // 4. Fresh guest donor.
+  return db.donor.create({ data: { userId: null, name: name ?? "Donor", email: normalized, isAnonymous: opts?.isAnonymous ?? false } });
 }
 
 /**
@@ -67,7 +100,9 @@ export async function recordStripeDonationFromCheckout(db: Db, data: StripeCheck
   const sessionId = md.sessionId || undefined;
 
   const fee = data.feeAmount ?? null;
-  const donor = await resolveDonor(db, data.customer_details?.email, data.customer_details?.name);
+  const donor = await resolveDonor(db, data.customer_details?.email, data.customer_details?.name, {
+    isAnonymous: md.isAnonymous === "true", // public-wall opt-out carried in metadata
+  });
 
   const donation = await db.donation.create({
     data: {

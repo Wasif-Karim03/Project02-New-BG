@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import {
   RegistrationIdTakenError, deactivateAllStudents, setStudentFlags, updateStudentRecord, upsertStudentSession,
 } from "@/lib/services/student-record";
+import { NotFoundError as StudentNotFoundError, deleteStudentCompletely } from "@/lib/services/deletion";
 import { studentRecordSchema, studentSessionSchema } from "@/lib/validation/student-record";
 
 const dollarsToCents = (v: FormDataEntryValue | null) => {
@@ -13,11 +14,22 @@ const dollarsToCents = (v: FormDataEntryValue | null) => {
   return v == null || v === "" || !Number.isFinite(n) ? undefined : Math.round(n * 100);
 };
 const str = (v: FormDataEntryValue | null) => (typeof v === "string" && v.trim() !== "" ? v : undefined);
+// School <select>: "" → null (clear link), a value → link, missing → unchanged.
+const schoolIdField = (v: FormDataEntryValue | null): string | null | undefined =>
+  typeof v !== "string" ? undefined : v === "" ? null : v;
 
 export async function updateRecordAction(formData: FormData) {
   const admin = await requireAdmin();
   const id = String(formData.get("studentId"));
   const parsed = studentRecordSchema.safeParse({
+    firstName: str(formData.get("firstName")),
+    fullName: str(formData.get("fullName")),
+    fatherName: str(formData.get("fatherName")),
+    motherName: str(formData.get("motherName")),
+    gender: str(formData.get("gender")),
+    // Empty <select> value means "clear the school link" → null; a cuid links it.
+    schoolId: schoolIdField(formData.get("schoolId")),
+    bio: str(formData.get("bio")),
     registrationId: str(formData.get("registrationId")),
     purpose: str(formData.get("purpose")),
     careerGoal: str(formData.get("careerGoal")),
@@ -79,4 +91,26 @@ export async function deactivateAllAction() {
   const admin = await requireAdmin();
   await deactivateAllStudents(admin.id);
   revalidatePath("/roster");
+}
+
+/**
+ * Permanent, irreversible erasure of a student (and their login, if any).
+ * Requires typing DELETE to confirm and a reason. Distinct from the soft
+ * "active"/reject flows. Audited inside the service.
+ */
+export async function deleteStudentAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = String(formData.get("studentId"));
+  const confirm = String(formData.get("confirm") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (confirm !== "DELETE") redirect(`/roster/${id}?error=${encodeURIComponent("Type DELETE (all caps) to confirm permanent erasure.")}`);
+  if (!reason) redirect(`/roster/${id}?error=${encodeURIComponent("A reason is required to permanently delete a student.")}`);
+  try {
+    await deleteStudentCompletely(admin.id, id, reason);
+  } catch (e) {
+    if (e instanceof StudentNotFoundError) redirect(`/roster/${id}?error=${encodeURIComponent(e.message)}`);
+    throw e;
+  }
+  revalidatePath("/roster");
+  redirect("/roster");
 }

@@ -4,7 +4,7 @@ import { PageHeader, Card, page } from "../_components/ui";
 // built-in, Git-backed CMS). This hub links straight into each editable area. The
 // marketing origin is env-configurable; Keystatic lives at /keystatic there.
 const SITE = process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3001";
-const singleton = (key: string) => `${SITE}/keystatic/singletons/${key}`;
+const singleton = (key: string) => `${SITE}/keystatic/singleton/${key}`;
 const collection = (key: string) => `${SITE}/keystatic/collection/${key}`;
 
 const GROUPS: { title: string; items: { label: string; href: string; hint: string }[] }[] = [

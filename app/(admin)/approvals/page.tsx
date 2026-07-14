@@ -7,15 +7,15 @@ import {
   rejectStudentAction,
   rejectUserAction,
 } from "./actions";
-import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, btnDanger, input } from "../_components/ui";
+import { page, PageHeader, Card, Badge, EmptyState, Notice, btnPrimary, btnDanger, input } from "../_components/ui";
 
-export default async function ApprovalsPage() {
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const session = await auth();
   // Server-side authorization on the actual resource — not just authentication.
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
     redirect("/login?callbackUrl=/approvals");
   }
-
+  const { ok, error } = await searchParams;
   const { accounts, loginlessStudents } = await listPendingQueue();
 
   return (
@@ -24,6 +24,8 @@ export default async function ApprovalsPage() {
         title="Approval queue"
         description="Pending accounts and mentor-registered students. Approve to activate; rejecting requires a reason. Every decision is written to the audit log."
       />
+
+      <Notice ok={ok} error={error} />
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">

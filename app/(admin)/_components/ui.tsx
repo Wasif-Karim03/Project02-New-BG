@@ -47,3 +47,10 @@ export function Badge({ tone = "neutral", children }: { tone?: keyof typeof TONE
 export function EmptyState({ children }: { children: ReactNode }) {
   return <div className="rounded-xl border border-dashed border-slate-200 bg-white/50 px-4 py-8 text-center text-sm text-slate-400">{children}</div>;
 }
+
+/** Success/error banner driven by ?ok / ?error search params. Renders nothing when both absent. */
+export function Notice({ ok, error }: { ok?: string; error?: string }) {
+  if (error) return <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{decodeURIComponent(error)}</div>;
+  if (ok) return <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Done — {decodeURIComponent(ok)}.</div>;
+  return null;
+}
