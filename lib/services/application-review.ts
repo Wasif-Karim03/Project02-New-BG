@@ -47,12 +47,27 @@ export async function approveApplication(adminUserId: string, applicationId: str
     const firstName = firstNameFrom(app.nameEn, app.user.name?.split(/\s+/)[0] ?? "Student");
     // If the user already has a Student (e.g. a prior signup), UPDATE it — never
     // create a second (Student.userId is unique). Keep an existing slug (immutable).
-    const existing = await tx.student.findUnique({ where: { userId: app.userId }, select: { slug: true } });
+    const existing = await tx.student.findUnique({ where: { userId: app.userId }, select: { slug: true, registrationId: true } });
     const slug = existing?.slug ?? (await generateUniqueStudentSlug(firstName));
+    // Auto-assign a unique registration ID (BG-<year>-<0001…>) on first approval;
+    // preserve any existing one. Sequential from the highest ID this year; the
+    // registrationId @unique constraint is the final guard against a race.
+    let registrationId = existing?.registrationId ?? null;
+    if (!registrationId) {
+      const prefix = `BG-${new Date().getFullYear()}-`;
+      const last = await tx.student.findFirst({
+        where: { registrationId: { startsWith: prefix } },
+        orderBy: { registrationId: "desc" },
+        select: { registrationId: true },
+      });
+      const n = last?.registrationId ? Number.parseInt(last.registrationId.slice(prefix.length), 10) : 0;
+      registrationId = `${prefix}${String((Number.isNaN(n) ? 0 : n) + 1).padStart(4, "0")}`;
+    }
 
     const mapped = {
       status: "ACTIVE" as const,
       slug,
+      registrationId,
       verified: true,
       firstName,
       fullName: app.nameEn,
