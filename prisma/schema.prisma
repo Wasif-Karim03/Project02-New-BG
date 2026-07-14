@@ -537,6 +537,9 @@ model StudentApplication {
 
   // agreements + uploaded files (URLs/keys; bytes live in storage, not the DB)
   agreedTerms    Boolean @default(false)
+  // Guardian consent to display the student's photo publicly (watermarked). Gates
+  // portraitConsent=GRANTED at approval; required to submit the application.
+  photoConsent   Boolean @default(false)
   resultSheetUrl String?
   photoUrl       String?
 

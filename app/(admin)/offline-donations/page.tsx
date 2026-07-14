@@ -104,27 +104,31 @@ export default async function OfflineDonationsPage({ searchParams }: { searchPar
                       <details className="group">
                         <summary className="cursor-pointer select-none text-xs font-medium text-slate-500 hover:text-slate-800">Correct ▾</summary>
                         <div className="mt-2 space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
-                          {/* Edit amount / note (offline rows only) */}
-                          <form action={updateOfflineDonationAction} className="flex flex-wrap items-end gap-2">
-                            <input type="hidden" name="donationId" value={d.id} />
-                            <label className={label}>Amount (USD)<input name="amountDollars" type="number" step="0.01" min="0" defaultValue={(d.amount / 100).toString()} className={`mt-1 w-28 ${input}`} /></label>
-                            <label className={label}>Note<input name="note" defaultValue={d.note ?? ""} className={`mt-1 w-48 ${input}`} /></label>
-                            <button className={btnSecondary}>Save edit</button>
-                          </form>
-                          {/* Post an adjustment (keeps original; amount may be negative) */}
-                          <form action={postAdjustmentAction} className="flex flex-wrap items-end gap-2">
-                            <input type="hidden" name="donationId" value={d.id} />
-                            <label className={label}>Adjustment (USD, +/−)<input name="adjustDollars" type="number" step="0.01" placeholder="-10.00" className={`mt-1 w-28 ${input}`} /></label>
-                            <label className={label}>Note<input name="note" className={`mt-1 w-48 ${input}`} /></label>
-                            <button className={btnSecondary}>Post adjustment</button>
-                          </form>
-                          {/* Void with reason */}
-                          {!voided && (
-                            <form action={voidDonationAction} className="flex flex-wrap items-end gap-2">
-                              <input type="hidden" name="donationId" value={d.id} />
-                              <label className={label}>Void reason<input name="reason" required className={`mt-1 w-48 ${input}`} /></label>
-                              <ConfirmSubmit className={btnDanger} message="Void this donation? It will stop counting toward totals. This is audited.">Void</ConfirmSubmit>
-                            </form>
+                          {voided ? (
+                            <p className="text-xs text-slate-500">This donation is voided — it no longer counts toward totals and can&apos;t be edited or adjusted.</p>
+                          ) : (
+                            <>
+                              {/* Edit amount / note (offline rows only) */}
+                              <form action={updateOfflineDonationAction} className="flex flex-wrap items-end gap-2">
+                                <input type="hidden" name="donationId" value={d.id} />
+                                <label className={label}>Amount (USD)<input name="amountDollars" type="number" step="0.01" min="0" defaultValue={(d.amount / 100).toString()} className={`mt-1 w-28 ${input}`} /></label>
+                                <label className={label}>Note<input name="note" defaultValue={d.note ?? ""} className={`mt-1 w-48 ${input}`} /></label>
+                                <button className={btnSecondary}>Save edit</button>
+                              </form>
+                              {/* Post an adjustment (keeps original; amount may be negative) */}
+                              <form action={postAdjustmentAction} className="flex flex-wrap items-end gap-2">
+                                <input type="hidden" name="donationId" value={d.id} />
+                                <label className={label}>Adjustment (USD, +/−)<input name="adjustDollars" type="number" step="0.01" placeholder="-10.00" className={`mt-1 w-28 ${input}`} /></label>
+                                <label className={label}>Note<input name="note" className={`mt-1 w-48 ${input}`} /></label>
+                                <button className={btnSecondary}>Post adjustment</button>
+                              </form>
+                              {/* Void with reason */}
+                              <form action={voidDonationAction} className="flex flex-wrap items-end gap-2">
+                                <input type="hidden" name="donationId" value={d.id} />
+                                <label className={label}>Void reason<input name="reason" required className={`mt-1 w-48 ${input}`} /></label>
+                                <ConfirmSubmit className={btnDanger} message="Void this donation? It will stop counting toward totals. This is audited.">Void</ConfirmSubmit>
+                              </form>
+                            </>
                           )}
                         </div>
                       </details>

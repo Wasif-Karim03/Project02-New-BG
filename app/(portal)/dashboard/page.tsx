@@ -11,6 +11,9 @@ type SearchParams = Promise<{ error?: string }>;
 export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await auth();
   if (!session?.user || session.user.status !== "ACTIVE") redirect("/login?callbackUrl=/dashboard");
+  // Donor-only view (giving history + recurring sponsorships). Non-donors would
+  // only ever see empty lists here, so send them to the public site instead.
+  if (session.user.role !== "DONOR") redirect("/");
   const { error } = await searchParams;
 
   const [subs, history] = await Promise.all([

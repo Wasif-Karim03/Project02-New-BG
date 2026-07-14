@@ -22,6 +22,13 @@ export class NotFoundError extends Error {
     this.name = "NotFoundError";
   }
 }
+/** A voided donation is settled — it can't be edited or adjusted (only viewed). */
+export class VoidedRowError extends Error {
+  constructor() {
+    super("This donation is voided — editing or adjusting it is not allowed.");
+    this.name = "VoidedRowError";
+  }
+}
 
 async function resolveDonor(db: Db, input: OfflineDonationInput) {
   if (input.donorId) {
@@ -89,6 +96,7 @@ export async function updateOfflineDonation(
     const donation = await tx.donation.findUnique({ where: { id: donationId } });
     if (!donation) throw new NotFoundError();
     if (donation.source === "STRIPE") throw new StripeRowImmutableError();
+    if (donation.status === "VOIDED") throw new VoidedRowError();
 
     const updated = await tx.donation.update({
       where: { id: donationId },
@@ -141,6 +149,8 @@ export async function postAdjustment(
   return prisma.$transaction(async (tx) => {
     const original = await tx.donation.findUnique({ where: { id: input.correctionOfId } });
     if (!original) throw new NotFoundError();
+    // Never re-inject value into a voided gift (would corrupt live totals/reports).
+    if (original.status === "VOIDED") throw new VoidedRowError();
     const adjustment = await tx.donation.create({
       data: {
         donorId: original.donorId,

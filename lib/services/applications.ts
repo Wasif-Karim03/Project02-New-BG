@@ -64,6 +64,7 @@ export async function submitApplication(userId: string): Promise<{ applicationId
   const app = await getOrCreateDraft(userId);
   const missing: string[] = REQUIRED_TO_SUBMIT.filter((f) => !(app as Record<string, unknown>)[f]);
   if (!app.agreedTerms) missing.push("agreedTerms");
+  if (!app.photoConsent) missing.push("photoConsent");
   if (missing.length) throw new MissingFieldsError(missing);
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");

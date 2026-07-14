@@ -91,6 +91,7 @@ export async function approveApplication(adminUserId: string, applicationId: str
       registrationId,
       schoolId,
       verified: true,
+      active: true, // (re-)approval brings the student onto the public site
       firstName,
       fullName: app.nameEn,
       fatherName: app.fatherNameEn,
@@ -110,10 +111,11 @@ export async function approveApplication(adminUserId: string, applicationId: str
       tutorPhone: app.tutorPhone,
       careerGoal: app.careerGoal,
       portraitUrl: app.photoUrl,
-      // Show the photo on the public site by default (it's served with a burned-in
-      // watermark). Admin can hide it per-student via the record's photo toggle.
-      portraitConsent: "GRANTED" as const,
-      consentScopes: ["WEBSITE"] as ConsentScope[],
+      // Publish the photo ONLY if the applicant consented to public display (the
+      // required "photoConsent" checkbox, recorded on the application). The image
+      // is served watermarked; admin can still toggle visibility per-student.
+      portraitConsent: app.photoConsent ? ("GRANTED" as const) : ("PENDING" as const),
+      consentScopes: app.photoConsent ? (["WEBSITE"] as ConsentScope[]) : ([] as ConsentScope[]),
       consentRevokedAt: null,
       reviewedById: adminUserId,
       reviewedAt: new Date(),
