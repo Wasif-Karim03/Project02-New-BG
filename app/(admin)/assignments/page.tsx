@@ -2,14 +2,17 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { assignAction, unassignAction } from "./actions";
-import { page, PageHeader, Card, EmptyState, btnPrimary, btnDanger, input, label } from "../_components/ui";
+import { page, PageHeader, Card, EmptyState, Notice, btnPrimary, btnDanger, input, label } from "../_components/ui";
 import { ConfirmSubmit } from "../_components/ConfirmSubmit";
 
-export default async function AssignmentsPage() {
+type SearchParams = Promise<{ error?: string; ok?: string }>;
+
+export default async function AssignmentsPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") {
     redirect("/login?callbackUrl=/assignments");
   }
+  const { error, ok } = await searchParams;
 
   const current = await prisma.academicSession.findFirst({ where: { isCurrent: true } });
   if (!current) {
@@ -36,6 +39,8 @@ export default async function AssignmentsPage() {
         title="Mentor assignments"
         description={`Session ${current.label}. Assigning grants a mentor access to a student; unassigning cuts it immediately.`}
       />
+
+      <Notice ok={ok} error={error} />
 
       <Card className="p-4">
         <form action={assignAction} className="flex flex-wrap items-end gap-3">

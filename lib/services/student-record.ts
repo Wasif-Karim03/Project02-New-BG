@@ -60,6 +60,9 @@ export async function upsertStudentSession(adminUserId: string, studentId: strin
     create: { studentId, sessionId, status: "ACTIVE", ...data },
     update: data,
   });
+  // Re-enrolling a student for a session brings them back onto the public site
+  // (year-end deactivation sets active=false; this is the re-activation path).
+  await prisma.student.update({ where: { id: studentId }, data: { active: true } });
   await recordAudit(prisma, {
     actorUserId: adminUserId, action: "student.session.upsert", entityType: "Student", entityId: studentId,
     after: { sessionId, grade: data.grade },

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/guards";
 import {
-  NotFoundError, ReasonRequiredError, StripeRowImmutableError,
+  NotFoundError, ReasonRequiredError, StripeRowImmutableError, VoidedRowError,
   createOfflineDonation, postAdjustment, updateOfflineDonation, voidDonation,
 } from "@/lib/services/offline-donations";
 import { offlineDonationSchema } from "@/lib/validation/offline-donations";
@@ -62,7 +62,7 @@ export async function postAdjustmentAction(formData: FormData) {
     try {
       await postAdjustment(admin.id, { correctionOfId: id, amount, note: String(formData.get("note") ?? "") || undefined });
     } catch (e) {
-      if (e instanceof NotFoundError) fail(e.message);
+      if (e instanceof NotFoundError || e instanceof VoidedRowError) fail(e.message);
       throw e;
     }
     done("adjusted");
@@ -81,7 +81,7 @@ export async function updateOfflineDonationAction(formData: FormData) {
       note: typeof noteRaw === "string" ? noteRaw : undefined,
     });
   } catch (e) {
-    if (e instanceof StripeRowImmutableError || e instanceof NotFoundError) fail(e.message);
+    if (e instanceof StripeRowImmutableError || e instanceof NotFoundError || e instanceof VoidedRowError) fail(e.message);
     throw e;
   }
   done("updated");

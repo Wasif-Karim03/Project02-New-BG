@@ -100,7 +100,15 @@ export async function deleteStudentCompletely(
   ];
 
   await prisma.$transaction(async (tx) => {
-    // Child rows first (some cascade from Student/User, but delete explicitly so
+    // PRESERVE the ledger but detach it from the student BEFORE deleting the row.
+    // The studentId FK is SetNull, but a designation CHECK requires
+    // (designationType='STUDENT' ⇒ studentId NOT NULL); a bare SetNull would leave
+    // STUDENT + null and violate the CHECK, aborting the whole erasure for any
+    // funded student. Re-designate their gifts/subscriptions to GENERAL first.
+    await tx.donation.updateMany({ where: { studentId }, data: { designationType: "GENERAL", studentId: null } });
+    await tx.subscription.updateMany({ where: { studentId }, data: { designationType: "GENERAL", studentId: null } });
+
+    // Child rows next (some cascade from Student/User, but delete explicitly so
     // the erasure is deterministic and independent of schema cascade settings).
     await tx.studentEvaluation.deleteMany({ where: { studentId } });
     await tx.studentSession.deleteMany({ where: { studentId } });

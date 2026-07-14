@@ -3,6 +3,7 @@ import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { EmailInUseError } from "@/lib/services/accounts";
+import { recordAudit } from "@/lib/services/audit";
 
 const CODE_TTL_MS = 15 * 60 * 1000;
 
@@ -41,6 +42,17 @@ export async function registerDonorWithVerification(input: { name: string; phone
           await tx.donation.updateMany({ where: { donorId: dup.id }, data: { donorId: primary.id } });
           await tx.subscription.updateMany({ where: { donorId: dup.id }, data: { donorId: primary.id } });
           await tx.donor.delete({ where: { id: dup.id } });
+        }
+        // Financial-attribution change — leave a trail (gifts moved across donor rows).
+        if (rest.length > 0) {
+          await recordAudit(tx, {
+            actorUserId: null,
+            action: "donor.consolidate",
+            entityType: "Donor",
+            entityId: primary.id,
+            after: { userId: user.id, absorbedDonorIds: rest.map((d) => d.id) },
+            reason: "guest donor rows folded into the new account on signup",
+          });
         }
       }
       return user.id;

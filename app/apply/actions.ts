@@ -50,6 +50,7 @@ function draftFromForm(formData: FormData) {
   }
   obj.isOrphan = formData.get("isOrphan") === "on";
   obj.agreedTerms = formData.get("agreedTerms") === "on";
+  obj.photoConsent = formData.get("photoConsent") === "on";
   return applicationDraftSchema.parse(obj);
 }
 

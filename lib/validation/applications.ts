@@ -25,6 +25,7 @@ export const applicationDraftSchema = z.object({
   localKnownName: s, localKnownPhone: s,
   // agreements + files
   agreedTerms: z.boolean().optional(),
+  photoConsent: z.boolean().optional(),
   resultSheetUrl: s, photoUrl: s,
 });
 
