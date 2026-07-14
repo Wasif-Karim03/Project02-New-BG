@@ -1,5 +1,6 @@
 import type { ConsentScope } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sendDecisionEmail } from "@/lib/services/account-emails";
 import { recordAudit } from "@/lib/services/audit";
 import { generateUniqueStudentSlug } from "@/lib/slug";
 
@@ -40,7 +41,7 @@ function firstNameFrom(nameEn: string | null, fallback: string): string {
  * application, and activate the applicant's account. Audited.
  */
 export async function approveApplication(adminUserId: string, applicationId: string) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const app = await tx.studentApplication.findUnique({ where: { id: applicationId }, include: { user: true } });
     if (!app) throw new NotFoundError();
     if (app.status !== "EMAIL_VERIFIED") throw new NotReviewableError(app.status);
@@ -113,15 +114,18 @@ export async function approveApplication(adminUserId: string, applicationId: str
       actorUserId: adminUserId, action: "application.approve", entityType: "StudentApplication", entityId: applicationId,
       after: { studentId: student.id, slug, userActivated: true },
     });
-    return { studentId: student.id, slug };
+    return { studentId: student.id, slug, email: app.user.email, name: firstName };
   });
+  // Notify the applicant after the transaction commits (best-effort).
+  await sendDecisionEmail({ to: result.email, name: result.name, role: "STUDENT", approved: true });
+  return { studentId: result.studentId, slug: result.slug };
 }
 
 /** Reject (reason required). The account stays PENDING so they can re-apply. Audited. */
 export async function rejectApplication(adminUserId: string, applicationId: string, reason: string) {
   if (!reason?.trim()) throw new ReasonRequiredError();
-  return prisma.$transaction(async (tx) => {
-    const app = await tx.studentApplication.findUnique({ where: { id: applicationId } });
+  const result = await prisma.$transaction(async (tx) => {
+    const app = await tx.studentApplication.findUnique({ where: { id: applicationId }, include: { user: true } });
     if (!app) throw new NotFoundError();
     if (app.status !== "EMAIL_VERIFIED") throw new NotReviewableError(app.status);
 
@@ -133,6 +137,8 @@ export async function rejectApplication(adminUserId: string, applicationId: stri
       actorUserId: adminUserId, action: "application.reject", entityType: "StudentApplication", entityId: applicationId,
       before: { status: "EMAIL_VERIFIED" }, after: { status: "REJECTED" }, reason: reason.trim(),
     });
-    return updated;
+    return { updated, email: app.user.email, name: app.nameEn ?? app.user.name };
   });
+  await sendDecisionEmail({ to: result.email, name: result.name, role: "STUDENT", approved: false });
+  return result.updated;
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sendDecisionEmail } from "@/lib/services/account-emails";
 import { recordAudit } from "@/lib/services/audit";
 import { generateUniqueStudentSlug } from "@/lib/slug";
 
@@ -47,7 +48,7 @@ export async function listPendingQueue() {
 // ── Account (User) decisions ────────────────────────────────────────────────
 
 export async function approveUser(adminUserId: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { id: userId }, include: { student: true } });
     if (!user) throw new NotFoundError("User");
     if (user.status !== "PENDING") throw new NotPendingError("User", user.status);
@@ -83,13 +84,15 @@ export async function approveUser(adminUserId: string, userId: string) {
         reason: "cascade from account approval",
       });
     }
-    return updated;
+    return { updated, email: user.email, name: user.name, role: user.role };
   });
+  await sendDecisionEmail({ to: result.email, name: result.name, role: result.role, approved: true });
+  return result.updated;
 }
 
 export async function rejectUser(adminUserId: string, userId: string, reason: string) {
   if (!reason?.trim()) throw new ReasonRequiredError();
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { id: userId }, include: { student: true } });
     if (!user) throw new NotFoundError("User");
     if (user.status !== "PENDING") throw new NotPendingError("User", user.status);
@@ -123,8 +126,10 @@ export async function rejectUser(adminUserId: string, userId: string, reason: st
         reason: reason.trim(),
       });
     }
-    return updated;
+    return { updated, email: user.email, name: user.name, role: user.role };
   });
+  await sendDecisionEmail({ to: result.email, name: result.name, role: result.role, approved: false });
+  return result.updated;
 }
 
 // ── Login-less Student decisions (mentor-registered) ────────────────────────

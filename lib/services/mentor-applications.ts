@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { sendDecisionEmail } from "@/lib/services/account-emails";
 import { EmailInUseError } from "@/lib/services/accounts";
 import { recordAudit } from "@/lib/services/audit";
 import { MENTOR_REQUIRED_TO_SUBMIT, type MentorApplicationDraft, mentorApplicationDraftSchema } from "@/lib/validation/mentor-application";
@@ -84,7 +85,7 @@ export async function getMentorApplication(id: string) {
 export class MentorNotReviewableError extends Error { constructor() { super("Application is not awaiting review."); this.name = "MentorNotReviewableError"; } }
 
 export async function approveMentorApplication(adminUserId: string, applicationId: string) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // Only an EMAIL_VERIFIED application may be approved — never a DRAFT/SUBMITTED/
     // already-APPROVED/REJECTED one (prevents activating an unverified or rejected user).
     const app = await tx.mentorApplication.findFirst({ where: { id: applicationId, status: "EMAIL_VERIFIED" } });
@@ -94,17 +95,20 @@ export async function approveMentorApplication(adminUserId: string, applicationI
       create: { userId: app.userId, phone: app.phone, bio: app.motivation, photoUrl: app.photoUrl },
       update: { phone: app.phone, bio: app.motivation, photoUrl: app.photoUrl },
     });
-    await tx.user.update({ where: { id: app.userId }, data: { status: "ACTIVE", reviewedById: adminUserId, reviewedAt: new Date() } });
+    const user = await tx.user.update({ where: { id: app.userId }, data: { status: "ACTIVE", reviewedById: adminUserId, reviewedAt: new Date() } });
     await tx.mentorApplication.update({ where: { id: applicationId }, data: { status: "APPROVED", mentorId: mentor.id, reviewedById: adminUserId, reviewedAt: new Date() } });
     await recordAudit(tx, { actorUserId: adminUserId, action: "mentor.application.approve", entityType: "MentorApplication", entityId: applicationId, after: { mentorId: mentor.id } });
-    return mentor;
+    return { mentor, email: user.email, name: app.fullName ?? user.name };
   });
+  await sendDecisionEmail({ to: result.email, name: result.name, role: "MENTOR", approved: true });
+  return result.mentor;
 }
 
 export async function rejectMentorApplication(adminUserId: string, applicationId: string, reason: string) {
   const app = await prisma.mentorApplication.update({ where: { id: applicationId }, data: { status: "REJECTED", reviewedById: adminUserId, reviewedAt: new Date() } });
-  await prisma.user.update({ where: { id: app.userId }, data: { status: "REJECTED" } });
+  const user = await prisma.user.update({ where: { id: app.userId }, data: { status: "REJECTED" } });
   await recordAudit(prisma, { actorUserId: adminUserId, action: "mentor.application.reject", entityType: "MentorApplication", entityId: applicationId, reason });
+  await sendDecisionEmail({ to: user.email, name: app.fullName ?? user.name, role: "MENTOR", approved: false });
   return app;
 }
 
