@@ -36,6 +36,21 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
         <Badge tone={statusTone(a.status)}>{a.status}</Badge>
       </PageHeader>
 
+      {a.photoUrl ? (
+        <div className="mb-4 flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview of the applicant's uploaded photo (auth-gated same-origin) */}
+          <img src={a.photoUrl} alt={a.nameEn ?? "Applicant photo"} className="h-40 w-32 shrink-0 rounded-lg border border-slate-200 object-cover" />
+          <div className="text-sm">
+            <p className="font-medium text-slate-900">Applicant photo</p>
+            <p className="mt-1 text-slate-500">The photo submitted with this application.</p>
+            <p className="mt-2 flex flex-wrap gap-3">
+              <a href={a.photoUrl} target="_blank" rel="noreferrer" className="text-slate-700 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500">Open full size</a>
+              {a.resultSheetUrl ? <a href={a.resultSheetUrl} target="_blank" rel="noreferrer" className="text-slate-700 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500">Result sheet</a> : null}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-4">
         <Card className="p-4">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Student</h2>

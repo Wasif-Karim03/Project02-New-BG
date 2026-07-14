@@ -25,10 +25,18 @@ export default async function ApplicationsPage() {
         <Card className="p-0">
           <ul className="divide-y divide-slate-100">
             {apps.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div className="text-sm">
-                  <Link href={`/applications/${a.id}`} className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500">{a.nameEn ?? "(no name)"}</Link>{" "}
-                  <span className="text-slate-500">· {a.user.email} · {a.schoolName ?? "—"}, {a.addrDistrict ?? "—"}</span>
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  {a.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- admin-only auth-gated same-origin thumbnail
+                    <img src={a.photoUrl} alt="" className="h-11 w-11 shrink-0 rounded-full border border-slate-200 object-cover" />
+                  ) : (
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-500">{(a.nameEn ?? "?").charAt(0).toUpperCase()}</div>
+                  )}
+                  <div className="min-w-0">
+                    <Link href={`/applications/${a.id}`} className="font-medium text-slate-900 hover:underline">{a.nameEn ?? "(no name)"}</Link>
+                    <p className="truncate text-xs text-slate-500">{a.user.email} · {a.schoolName ?? "—"}, {a.addrDistrict ?? "—"}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <form action={approveApplicationAction}>
