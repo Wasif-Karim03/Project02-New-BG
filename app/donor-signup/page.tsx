@@ -1,12 +1,19 @@
 import Link from "next/link";
 import { createDonorAccountAction } from "./actions";
 
-type SearchParams = Promise<{ error?: string }>;
+type SearchParams = Promise<{ error?: string; next?: string }>;
 const field = "mt-1.5 w-full rounded-lg border border-hairline bg-white px-3 py-2.5 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40";
 const label = "block text-sm font-medium text-ink-2";
 
+// Only ever return into the give flow after signup — never an arbitrary URL.
+function safeNext(next?: string): string | undefined {
+  return next?.startsWith("/give") ? next : undefined;
+}
+
 export default async function DonorSignupPage({ searchParams }: { searchParams: SearchParams }) {
-  const { error } = await searchParams;
+  const { error, next: rawNext } = await searchParams;
+  const next = safeNext(rawNext);
+  const guestHref = next ?? "/give";
   return (
     <main className="mx-auto w-full max-w-md px-6 py-16">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent-2-text">Bridging Generations</p>
@@ -15,6 +22,7 @@ export default async function DonorSignupPage({ searchParams }: { searchParams: 
       {error && <div className="mt-6 rounded-xl border border-accent-2/30 bg-accent-2/10 px-4 py-3 text-sm text-accent-2-text">{decodeURIComponent(error)}</div>}
 
       <form action={createDonorAccountAction} className="mt-6 grid gap-4 rounded-2xl border border-hairline bg-ground-2 p-6 shadow-sm">
+        {next ? <input type="hidden" name="next" value={next} /> : null}
         <label className={label}>Full name<input name="name" required className={field} /></label>
         <label className={label}>Phone (optional)<input name="phone" className={field} /></label>
         <label className={label}>Email<input name="email" type="email" required className={field} /></label>
@@ -42,7 +50,7 @@ export default async function DonorSignupPage({ searchParams }: { searchParams: 
         <button type="submit" className="mt-1 rounded-full bg-accent-2 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-2-hover">Create account</button>
       </form>
 
-      <p className="mt-4 text-sm text-ink-2">Prefer not to sign up? <Link href="/give" className="font-medium text-accent-2-text underline underline-offset-2 hover:text-accent-2-hover">Just donate as a guest</Link>. Already have an account? <Link href="/login" className="font-medium text-accent-2-text underline underline-offset-2 hover:text-accent-2-hover">Sign in</Link>.</p>
+      <p className="mt-4 text-sm text-ink-2">Prefer not to sign up? <Link href={guestHref} className="font-medium text-accent-2-text underline underline-offset-2 hover:text-accent-2-hover">Just donate as a guest</Link>. Already have an account? <Link href={next ? `/login?callbackUrl=${encodeURIComponent(next)}` : "/login"} className="font-medium text-accent-2-text underline underline-offset-2 hover:text-accent-2-hover">Sign in</Link>.</p>
     </main>
   );
 }

@@ -7,9 +7,17 @@ import { submitDonationClaim } from "@/lib/services/donation-claims";
 import { UploadRejectedError, saveUpload } from "@/lib/storage";
 import { donationClaimSchema } from "@/lib/validation/donation-claim";
 
+// Redirect back to wherever the form was submitted from (the context-locked
+// /give/checkout keeps its ?student=/?project= this way), appending a status.
+function backTo(formData: FormData, status: string): never {
+  const base = String(formData.get("returnTo") || "/give/checkout");
+  const safe = base.startsWith("/give") ? base : "/give/checkout"; // never redirect off the give flow
+  redirect(`${safe}${safe.includes("?") ? "&" : "?"}${status}`);
+}
+
 export async function submitClaimAction(formData: FormData) {
   if (!(await checkRateLimit("give-claim", { max: 10, windowMs: 15 * 60 * 1000 }))) {
-    redirect("/give?error=" + encodeURIComponent("Too many submissions. Please try again later."));
+    backTo(formData, "error=" + encodeURIComponent("Too many submissions. Please try again later."));
   }
 
   // Validate the text fields FIRST so a bad form never leaves an orphaned tribute
@@ -31,7 +39,7 @@ export async function submitClaimAction(formData: FormData) {
     tributeMessage: formData.get("tributeMessage") || undefined,
     isAnonymous,
   });
-  if (!parsed.success) redirect("/give?error=" + encodeURIComponent(parsed.error.issues[0]?.message ?? "Please check the form"));
+  if (!parsed.success) backTo(formData, "error=" + encodeURIComponent(parsed.error.issues[0]?.message ?? "Please check the form"));
 
   // Now (and only now) persist the optional tribute photo → object storage.
   let tributeImageUrl: string | undefined;
@@ -40,7 +48,7 @@ export async function submitClaimAction(formData: FormData) {
     try {
       tributeImageUrl = `/api/files/${await saveUpload("tributes", img.type, Buffer.from(await img.arrayBuffer()))}`;
     } catch (e) {
-      if (e instanceof UploadRejectedError) redirect("/give?error=" + encodeURIComponent(e.message));
+      if (e instanceof UploadRejectedError) backTo(formData, "error=" + encodeURIComponent(e.message));
       throw e;
     }
   }
@@ -55,5 +63,5 @@ export async function submitClaimAction(formData: FormData) {
     if (d) await prisma.donor.update({ where: { id: d.donorId }, data: { isAnonymous: true } });
   }
 
-  redirect("/give?submitted=1");
+  backTo(formData, "submitted=1");
 }

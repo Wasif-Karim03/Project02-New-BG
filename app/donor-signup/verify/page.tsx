@@ -2,11 +2,12 @@ import { redirect } from "next/navigation";
 import { getApplicantUserId } from "@/lib/apply-session";
 import { resendDonorAction, verifyDonorAction } from "../actions";
 
-type SearchParams = Promise<{ error?: string; resent?: string; dev?: string }>;
+type SearchParams = Promise<{ error?: string; resent?: string; dev?: string; next?: string }>;
 
 export default async function DonorVerifyPage({ searchParams }: { searchParams: SearchParams }) {
   if (!(await getApplicantUserId())) redirect("/donor-signup");
-  const { error, resent, dev } = await searchParams;
+  const { error, resent, dev, next: rawNext } = await searchParams;
+  const next = rawNext?.startsWith("/give") ? rawNext : undefined;
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-16">
@@ -18,12 +19,13 @@ export default async function DonorVerifyPage({ searchParams }: { searchParams: 
       {error && <div className="mt-6 rounded-xl border border-accent-2/30 bg-accent-2/10 px-4 py-3 text-sm text-accent-2-text">{decodeURIComponent(error)}</div>}
 
       <form action={verifyDonorAction} className="mt-6 flex items-end gap-3 rounded-2xl border border-hairline bg-ground-2 p-6 shadow-sm">
+        {next ? <input type="hidden" name="next" value={next} /> : null}
         <label className="block text-sm font-medium text-ink-2">Verification code
           <input name="code" inputMode="numeric" pattern="[0-9]*" maxLength={6} required className="mt-1.5 w-40 rounded-lg border border-hairline bg-white px-3 py-2.5 text-lg tracking-widest text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40" />
         </label>
         <button type="submit" className="rounded-full bg-accent-2 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-2-hover">Verify</button>
       </form>
-      <form action={resendDonorAction} className="mt-4"><button type="submit" className="text-sm font-medium text-accent-2-text underline underline-offset-2 hover:text-accent-2-hover">Resend code</button></form>
+      <form action={resendDonorAction} className="mt-4">{next ? <input type="hidden" name="next" value={next} /> : null}<button type="submit" className="text-sm font-medium text-accent-2-text underline underline-offset-2 hover:text-accent-2-hover">Resend code</button></form>
     </main>
   );
 }
