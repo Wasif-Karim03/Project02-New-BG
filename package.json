@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "postinstall": "prisma generate",
-    "vercel-build": "prisma migrate deploy && next build",
+    "vercel-build": "DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL_UNPOOLED}\" prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "structure": "bash scripts/check-structure.sh",
