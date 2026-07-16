@@ -87,7 +87,9 @@ async function main() {
   await mkDonation({ donorId: dSpon.id, designationType: "STUDENT", studentId: sFull.id, sessionId: session.id, amount: 3000, currency: "USD", source: "STRIPE", status: "SUCCEEDED", stripePaymentIntentId: `pi_${T}_sp`, idempotencyKey: `k_${T}_sp`, occurredAt: new Date() });
   await mkDonation({ donorId: dA.id, designationType: "GENERAL", amount: 2000, currency: "USD", source: "CASH", status: "SUCCEEDED", occurredAt: new Date("2024-02-02") });
   await mkDonation({ donorId: dB.id, designationType: "GENERAL", amount: 1500, currency: "USD", source: "CASH", status: "SUCCEEDED", occurredAt: new Date("2023-01-01") });
-  await prisma.donor.update({ where: { id: dA.id }, data: { wallMessage: "Thank you", wallTier: "friend" } });
+  // Alice opted in AND was approved for the wall (with a photo); the other named
+  // donors (dp1/dp2/dSpon) never opted in, so they must NOT appear on the wall.
+  await prisma.donor.update({ where: { id: dA.id }, data: { wallMessage: "Thank you", wallTier: "friend", wallStatus: "APPROVED", avatarUrl: `/api/files/donors/alice-${T}.jpg` } });
 
   const [students, projects, stats, wall] = await Promise.all([projectStudents(), projectProjects(), projectStats(), projectDonorWall()]);
   const sFullPub = await projectStudentBySlug(sFull.slug!);
@@ -130,9 +132,11 @@ async function main() {
 
   console.log("\nDonor wall");
   const alice = wall.find((w) => w.message === "Thank you");
-  check("named donor → displayName is the name, tier + year present", alice?.displayName === `Alice${T}` && alice?.tier === "friend" && typeof alice?.year === "number");
+  check("approved named donor → name, tier, avatar, year present", alice?.displayName === `Alice${T}` && alice?.tier === "friend" && alice?.avatarUrl === `/api/files/donors/alice-${T}.jpg` && typeof alice?.year === "number");
   const anon = wall.find((w) => w.displayName === "Anonymous");
   check("anonymous donor → displayName 'Anonymous', no name", !!anon && !JSON.stringify(anon).includes(SECRET_ANON));
+  // Named donors who never opted in / weren't approved must NOT be on the public wall.
+  check("unapproved named donor is NOT on the wall", !wall.some((w) => w.displayName === `P1${T}`));
 
   console.log(`\n${failures === 0 ? "✓ ALL PROJECTION CHECKS PASSED" : `✗ ${failures} CHECK(S) FAILED`}`);
   await cleanup(project.id);
