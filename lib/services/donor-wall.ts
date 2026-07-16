@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/services/audit";
+import { MARKETING_TAGS, revalidateMarketing } from "@/lib/services/revalidate-marketing";
 
 /** A donor opted in to the public wall but not in a reviewable (PENDING) state. */
 export class DonorNotReviewableError extends Error {
@@ -39,10 +40,10 @@ export async function listPendingWallDonors() {
 }
 
 async function setWallStatus(adminUserId: string, donorId: string, status: "APPROVED" | "REJECTED") {
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const donor = await tx.donor.findUnique({ where: { id: donorId }, select: { wallStatus: true, isAnonymous: true } });
     if (!donor || donor.wallStatus !== "PENDING" || donor.isAnonymous) throw new DonorNotReviewableError();
-    const updated = await tx.donor.update({ where: { id: donorId }, data: { wallStatus: status } });
+    const row = await tx.donor.update({ where: { id: donorId }, data: { wallStatus: status } });
     await recordAudit(tx, {
       actorUserId: adminUserId,
       action: status === "APPROVED" ? "donor.wall.approve" : "donor.wall.reject",
@@ -51,8 +52,11 @@ async function setWallStatus(adminUserId: string, donorId: string, status: "APPR
       before: { wallStatus: "PENDING" },
       after: { wallStatus: status },
     });
-    return updated;
+    return row;
   });
+  // Approving/declining changes who shows on the public Donors wall.
+  await revalidateMarketing([MARKETING_TAGS.donors, MARKETING_TAGS.stats]);
+  return updated;
 }
 
 /** Approve a donor for the public Donors page (name + photo become visible). Audited. */

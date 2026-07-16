@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentSessionId } from "@/lib/services/academic-session";
 import { sendDecisionEmail } from "@/lib/services/account-emails";
 import { recordAudit } from "@/lib/services/audit";
+import { MARKETING_TAGS, revalidateMarketing } from "@/lib/services/revalidate-marketing";
 import { generateUniqueStudentSlug, slugify } from "@/lib/slug";
 
 export class NotFoundError extends Error {
@@ -168,6 +169,8 @@ export async function approveApplication(adminUserId: string, applicationId: str
   });
   // Notify the applicant after the transaction commits (best-effort).
   await sendDecisionEmail({ to: result.email, name: result.name, role: "STUDENT", approved: true });
+  // Refresh the public site so the new student appears within seconds.
+  await revalidateMarketing([MARKETING_TAGS.students, MARKETING_TAGS.stats]);
   return { studentId: result.studentId, slug: result.slug };
 }
 
