@@ -17,11 +17,24 @@ const genCode = () => String(randomInt(0, 1_000_000)).padStart(6, "0");
  * already exists for this email, it's adopted so past guest gifts show up in the
  * new account. Emails a 6-digit code; account activates on verification.
  */
-export async function registerDonorWithVerification(input: { name: string; phone?: string; email: string; password: string }) {
+export async function registerDonorWithVerification(input: {
+  name: string;
+  phone?: string;
+  email: string;
+  password: string;
+  avatarUrl?: string;
+  // true = "show me on the public Donors page" (goes to admin approval);
+  // false = stay anonymous (always shown as "Anonymous", no approval needed).
+  showOnWall: boolean;
+}) {
   const email = input.email.trim().toLowerCase();
   const passwordHash = await hashPassword(input.password);
   const code = genCode();
   const emailCodeHash = await hashPassword(code);
+  // Public-listing intent → the donor row's visibility fields. Opting in requires
+  // admin approval (PENDING); anonymous is immediate and never named.
+  const isAnonymous = !input.showOnWall;
+  const wallStatus = input.showOnWall ? ("PENDING" as const) : ("NONE" as const);
   let userId: string;
   try {
     userId = await prisma.$transaction(async (tx) => {
@@ -34,10 +47,10 @@ export async function registerDonorWithVerification(input: { name: string; phone
       // drop the now-empty duplicates).
       const guests = await tx.donor.findMany({ where: { email, userId: null }, orderBy: { createdAt: "asc" } });
       if (guests.length === 0) {
-        await tx.donor.create({ data: { userId: user.id, name: input.name, email, phone: input.phone } });
+        await tx.donor.create({ data: { userId: user.id, name: input.name, email, phone: input.phone, avatarUrl: input.avatarUrl, isAnonymous, wallStatus } });
       } else {
         const [primary, ...rest] = guests;
-        await tx.donor.update({ where: { id: primary.id }, data: { userId: user.id, name: input.name, phone: input.phone } });
+        await tx.donor.update({ where: { id: primary.id }, data: { userId: user.id, name: input.name, phone: input.phone, avatarUrl: input.avatarUrl, isAnonymous, wallStatus } });
         for (const dup of rest) {
           await tx.donation.updateMany({ where: { donorId: dup.id }, data: { donorId: primary.id } });
           await tx.subscription.updateMany({ where: { donorId: dup.id }, data: { donorId: primary.id } });
