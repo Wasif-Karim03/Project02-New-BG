@@ -60,15 +60,15 @@ async function main() {
   const portraitUrl = `/api/files/applications/portrait-${T}.jpg`;
   // Same student now carries a portrait WITHOUT website consent → still private.
   await prisma.student.update({ where: { id: student.id }, data: { portraitUrl, portraitConsent: "GRANTED", consentScopes: [], consentRevokedAt: null } });
-  check("portrait without WEBSITE scope is NOT public", (await isPublicFile(portraitUrl)) === false);
+  check("portrait without WEBSITE scope is NOT public", (await isPublicFile(portraitUrl)).public === false);
   check("...and unauthenticated still cannot view it", (await canViewFile(undefined, portraitUrl)) === false);
   // Grant website consent → the portrait becomes publicly viewable.
   await prisma.student.update({ where: { id: student.id }, data: { consentScopes: ["WEBSITE"] } });
-  check("portrait with granted WEBSITE consent IS public", (await isPublicFile(portraitUrl)) === true);
+  check("portrait with granted WEBSITE consent IS public", (await isPublicFile(portraitUrl)).public === true);
   check("...and an unauthenticated visitor CAN view it", (await canViewFile(undefined, portraitUrl)) === true);
   // Revoking consent immediately stops public serving.
   await prisma.student.update({ where: { id: student.id }, data: { consentRevokedAt: new Date() } });
-  check("revoking consent makes the portrait private again", (await isPublicFile(portraitUrl)) === false);
+  check("revoking consent makes the portrait private again", (await isPublicFile(portraitUrl)).public === false);
 
   console.log(`\n${failures === 0 ? "✓ ALL UPLOAD CHECKS PASSED" : `✗ ${failures} CHECK(S) FAILED`}`);
 }

@@ -128,6 +128,17 @@ enum ProjectStatus {
   PAUSED
 }
 
+// Public donor-wall listing state. A donor who opts in to be shown by name needs
+// admin approval before appearing (PENDING → APPROVED / REJECTED). Anonymous or
+// not-opted-in donors stay NONE and never appear by name (anonymous ones render
+// as "Anonymous" on the wall; the rest simply aren't listed).
+enum WallStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ContactMethod {
   MOBILE
   EMAIL
@@ -277,7 +288,12 @@ model Donor {
   email       String?
   country     String?
   phone       String?
+  avatarUrl   String? // optional profile picture (/api/files/...); public only once wallStatus=APPROVED
   isAnonymous Boolean @default(false) // controls public thank-you wall display
+  // Public-wall listing state. Opted-in (named) donors are PENDING until an admin
+  // approves them for the Donors page; anonymous donors stay NONE. The account
+  // itself works regardless — this ONLY gates public visibility.
+  wallStatus  WallStatus @default(NONE)
   wallMessage String? // optional message for the donor wall
   wallTier    String? // '', founder, patron, friend (mirrors existing site)
 

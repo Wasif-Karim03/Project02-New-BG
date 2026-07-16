@@ -27,11 +27,15 @@ async function main() {
   // A prior guest gift under this email — the account should adopt it.
   const guest = await prisma.donor.create({ data: { name: "Guest", email } });
   donorIds.push(guest.id);
-  const { userId, devCode } = await registerDonorWithVerification({ name: "New Donor", phone: "0170000000", email, password: "donor-password-1" });
+  const { userId, devCode } = await registerDonorWithVerification({ name: "New Donor", phone: "0170000000", email, password: "donor-password-1", showOnWall: true });
   userIds.push(userId);
   const u = await prisma.user.findUnique({ where: { id: userId } });
   check("account is DONOR + PENDING before verify", u?.role === "DONOR" && u?.status === "PENDING");
-  check("guest donor adopted (userId linked, phone set)", (await prisma.donor.findUnique({ where: { id: guest.id } }))?.userId === userId);
+  const adopted = await prisma.donor.findUnique({ where: { id: guest.id } });
+  check("guest donor adopted (userId linked, phone set)", adopted?.userId === userId);
+  // Opting in to the public wall marks the donor PENDING (awaiting admin approval),
+  // not anonymous — the account still works immediately regardless.
+  check("opted-in donor is PENDING wall approval + not anonymous", adopted?.wallStatus === "PENDING" && adopted?.isAnonymous === false);
 
   console.log("\nVerify");
   await expectThrow("wrong code refused", DonorCodeInvalidError, () => verifyDonorEmail(userId, "000000"));

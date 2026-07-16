@@ -19,6 +19,26 @@ export default async function DonorSignupPage({ searchParams }: { searchParams: 
         <label className={label}>Phone (optional)<input name="phone" className={field} /></label>
         <label className={label}>Email<input name="email" type="email" required className={field} /></label>
         <label className={label}>Password (min 10)<input name="password" type="password" required minLength={10} className={field} /></label>
+
+        <label className={label}>
+          Profile picture (optional)
+          <input name="avatar" type="file" accept="image/*" className="mt-1.5 block w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-ground-3 file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-hairline" />
+          <span className="mt-1 block text-xs text-ink-2">Shown on the public Donors page if you choose to be listed — after a quick review.</span>
+        </label>
+
+        <fieldset className="grid gap-2">
+          <legend className={`${label} mb-1`}>How would you like to appear?</legend>
+          <label className="flex items-start gap-3 rounded-xl border border-hairline bg-white p-3 text-sm text-ink-2 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30">
+            <input type="radio" name="visibility" value="public" defaultChecked className="mt-0.5 h-4 w-4" />
+            <span><span className="font-medium text-ink">List me on the Donors page</span> — your name{" "}
+              {"(and photo, if added)"} may appear on our public Donors wall once an admin approves it.</span>
+          </label>
+          <label className="flex items-start gap-3 rounded-xl border border-hairline bg-white p-3 text-sm text-ink-2 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30">
+            <input type="radio" name="visibility" value="anonymous" className="mt-0.5 h-4 w-4" />
+            <span><span className="font-medium text-ink">Keep me anonymous</span> — you&apos;ll always show as &ldquo;Anonymous&rdquo; and your name is never published.</span>
+          </label>
+        </fieldset>
+
         <button type="submit" className="mt-1 rounded-full bg-accent-2 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-2-hover">Create account</button>
       </form>
 
