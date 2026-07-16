@@ -1,5 +1,6 @@
-import "server-only";
-
+// NB: no `import "server-only"` here — this module is imported by services that
+// the tsx-run verify scripts exercise (where the server-only shim doesn't
+// resolve). It's only ever imported server-side anyway, so the secret is safe.
 const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL?.replace(/\/$/, "");
 const SECRET = process.env.REVALIDATE_SECRET;
 
