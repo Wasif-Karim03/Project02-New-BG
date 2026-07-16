@@ -15,7 +15,7 @@ export const STUDENT_KEYS = ["id", "slug", "firstName", "schoolName", "grade", "
   "registrationId", "purpose", "requireAmount", "fundedAmount", "perInstallment", "currency", "isOrphan", "ethnicity", "district"] as const;
 export const PROJECT_KEYS = ["title", "slug", "summary", "status", "displayOrder", "fundingGoal", "fundingRaised", "currency"] as const;
 export const STATS_KEYS = ["studentCount", "schoolCount", "donorCount", "totalRaised", "currency"] as const;
-export const DONORWALL_KEYS = ["id", "displayName", "message", "tier", "year"] as const;
+export const DONORWALL_KEYS = ["id", "displayName", "message", "tier", "year", "avatarUrl"] as const;
 
 export type PublicStudent = {
   id: string; slug: string; firstName: string; schoolName: string | null;
@@ -56,7 +56,7 @@ export type PublicProject = {
   displayOrder: number | null; fundingGoal: number; fundingRaised: number; currency: string;
 };
 export type PublicStats = { studentCount: number; schoolCount: number; donorCount: number; totalRaised: number; currency: string };
-export type PublicDonorWallEntry = { id?: string; displayName: string; message?: string; tier?: string; year?: number };
+export type PublicDonorWallEntry = { id?: string; displayName: string; message?: string; tier?: string; year?: number; avatarUrl?: string };
 
 // Per-donor public profile with giving history. NAMED donors only — anonymous
 // donors chose anonymity, so they get no public profile (404). Exposes amounts by
@@ -64,6 +64,7 @@ export type PublicDonorWallEntry = { id?: string; displayName: string; message?:
 export type PublicDonorProfile = {
   displayName: string;
   tier?: string;
+  avatarUrl?: string;
   currency: string;
   totalAmount: number; // minor units, net of refunds
   gifts: { date: string; amount: number }[]; // date = YYYY-MM-DD, amount = minor units net
@@ -71,10 +72,12 @@ export type PublicDonorProfile = {
 
 export async function projectDonorProfile(id: string): Promise<PublicDonorProfile | null> {
   const donor = await prisma.donor.findFirst({
-    where: { id, isAnonymous: false, donations: { some: { status: "SUCCEEDED" } } },
+    // A public profile exists ONLY for a named donor the admin approved for the wall.
+    where: { id, isAnonymous: false, wallStatus: "APPROVED", donations: { some: { status: "SUCCEEDED" } } },
     select: {
       name: true,
       wallTier: true,
+      avatarUrl: true,
       donations: {
         where: { status: "SUCCEEDED" },
         select: { amount: true, refundedAmount: true, currency: true, occurredAt: true },
@@ -91,6 +94,7 @@ export async function projectDonorProfile(id: string): Promise<PublicDonorProfil
     gifts,
   };
   if (donor.wallTier) profile.tier = donor.wallTier;
+  if (donor.avatarUrl) profile.avatarUrl = donor.avatarUrl;
   return profile;
 }
 
@@ -279,18 +283,30 @@ export async function projectStats(): Promise<PublicStats> {
 
 export async function projectDonorWall(): Promise<PublicDonorWallEntry[]> {
   const donors = await prisma.donor.findMany({
-    where: { donations: { some: { status: "SUCCEEDED" } } },
+    where: {
+      donations: { some: { status: "SUCCEEDED" } },
+      // Named donors appear ONLY once an admin approves them for the wall; anonymous
+      // donors always appear as "Anonymous" (no approval needed). Everyone else —
+      // pending, declined, or never-opted-in (e.g. guest gifts) — is off the wall.
+      OR: [{ isAnonymous: false, wallStatus: "APPROVED" }, { isAnonymous: true }],
+    },
     // Stable, deterministic order so the public wall doesn't reshuffle on refresh.
     orderBy: [{ name: "asc" }, { createdAt: "asc" }],
     select: {
-      id: true, name: true, isAnonymous: true, wallMessage: true, wallTier: true,
+      id: true, name: true, isAnonymous: true, avatarUrl: true, wallMessage: true, wallTier: true,
       donations: { where: { status: "SUCCEEDED" }, select: { occurredAt: true }, orderBy: { occurredAt: "desc" }, take: 1 },
     },
   });
   return donors.map((d) => {
-    const entry: PublicDonorWallEntry = { displayName: d.isAnonymous ? "Anonymous" : d.name };
-    // Only named donors get a clickable public profile (anonymous stay anonymous).
-    if (!d.isAnonymous) entry.id = d.id;
+    if (d.isAnonymous) {
+      // Nothing identifying — name, photo, message, and tier are all withheld.
+      const entry: PublicDonorWallEntry = { displayName: "Anonymous" };
+      const latest = d.donations[0]?.occurredAt;
+      if (latest) entry.year = new Date(latest).getFullYear();
+      return entry;
+    }
+    const entry: PublicDonorWallEntry = { id: d.id, displayName: d.name };
+    if (d.avatarUrl) entry.avatarUrl = d.avatarUrl;
     if (d.wallMessage) entry.message = d.wallMessage;
     if (d.wallTier) entry.tier = d.wallTier;
     const latest = d.donations[0]?.occurredAt;
