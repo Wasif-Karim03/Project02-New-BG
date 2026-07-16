@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/services/audit";
+import { MARKETING_TAGS, revalidateMarketing } from "@/lib/services/revalidate-marketing";
 import type { StudentRecordInput, StudentSessionInput } from "@/lib/validation/student-record";
 
 export class NotFoundError extends Error {
@@ -67,6 +68,8 @@ export async function upsertStudentSession(adminUserId: string, studentId: strin
     actorUserId: adminUserId, action: "student.session.upsert", entityType: "Student", entityId: studentId,
     after: { sessionId, grade: data.grade },
   });
+  // Re-enrollment reactivates the student + updates the grade shown publicly.
+  await revalidateMarketing([MARKETING_TAGS.students, MARKETING_TAGS.stats]);
   return row;
 }
 
@@ -98,6 +101,8 @@ export async function setStudentFlags(
   await recordAudit(prisma, {
     actorUserId: adminUserId, action: "student.flags.set", entityType: "Student", entityId: studentId, after: flags,
   });
+  // Visibility / consent / active toggles change what the public site shows.
+  await revalidateMarketing([MARKETING_TAGS.students, MARKETING_TAGS.stats]);
   return updated;
 }
 
@@ -114,5 +119,6 @@ export async function deactivateAllStudents(adminUserId: string | null): Promise
     actorUserId: adminUserId, action: "student.yearend.deactivate", entityType: "Student", entityId: null,
     after: { deactivated: res.count },
   });
+  await revalidateMarketing([MARKETING_TAGS.students, MARKETING_TAGS.stats]);
   return res.count;
 }

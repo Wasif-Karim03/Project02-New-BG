@@ -3,6 +3,7 @@ import path from "node:path";
 import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/services/audit";
+import { MARKETING_TAGS, revalidateMarketing } from "@/lib/services/revalidate-marketing";
 
 export class NotFoundError extends Error {
   constructor() { super("Student not found"); this.name = "NotFoundError"; }
@@ -137,6 +138,9 @@ export async function deleteStudentCompletely(
 
   // Files last — outside the tx, best-effort, never fatal.
   await Promise.all(fileKeys.map(deleteStoredFile));
+
+  // Drop the removed student from the public site right away.
+  await revalidateMarketing([MARKETING_TAGS.students, MARKETING_TAGS.stats]);
 
   return { deletedUser: Boolean(userId) };
 }
