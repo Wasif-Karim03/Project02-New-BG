@@ -2,12 +2,16 @@ import { z } from "zod";
 
 const s = z.string().trim().max(400).optional();
 const i = z.coerce.number().int().min(0).max(100).optional();
+// Student's English name — the owner's form marks THIS field "CAPS" (parent
+// English names are not). Normalize to uppercase at the validation boundary so
+// the stored value is guaranteed uppercase regardless of how it was typed.
+const su = z.string().trim().max(400).transform((v) => v.toUpperCase()).optional();
 
 // Draft save — everything optional so the applicant can save progress. The
 // required-for-submission fields are enforced in submitApplication().
 export const applicationDraftSchema = z.object({
   // ক. Student info
-  nameBn: s, nameEn: s, fatherNameBn: s, fatherNameEn: s, motherNameBn: s, motherNameEn: s,
+  nameBn: s, nameEn: su, fatherNameBn: s, fatherNameEn: s, motherNameBn: s, motherNameEn: s,
   familyMobile: s, gender: z.enum(["male", "female", "other"]).optional(), isOrphan: z.boolean().optional(), ethnicity: s,
   // খ. Education
   schoolName: s, classNeeded: s, currentClass: s, roll: s, totalStudents: s,
@@ -31,9 +35,25 @@ export const applicationDraftSchema = z.object({
 
 export type ApplicationDraftInput = z.infer<typeof applicationDraftSchema>;
 
-// Fields that MUST be present to submit (validated in the service). photoUrl is
-// required: every applicant must include a photo (it becomes their portrait).
+// Fields that MUST be present to submit (validated in the service). photoUrl and
+// resultSheetUrl are required: every applicant must include a photo (it becomes
+// their portrait) and last year's result sheet (proof of study).
 export const REQUIRED_TO_SUBMIT = [
   "nameEn", "fatherNameEn", "motherNameEn", "familyMobile", "gender",
-  "schoolName", "currentClass", "addrDistrict", "photoUrl",
+  "schoolName", "currentClass", "addrDistrict", "photoUrl", "resultSheetUrl",
 ] as const;
+
+// Orphan applicants must name a local guardian (name + phone). Enforced at SUBMIT
+// only — a partial draft can still save — so this lives apart from the all-optional
+// applicationDraftSchema. Nullish because the DB stores unset fields as null.
+export const orphanGuardianSchema = z
+  .object({
+    isOrphan: z.boolean().nullish(),
+    localGuardianName: z.string().nullish(),
+    localGuardianPhone: z.string().nullish(),
+  })
+  .superRefine((d, ctx) => {
+    if (!d.isOrphan) return;
+    if (!d.localGuardianName?.trim()) ctx.addIssue({ code: "custom", path: ["localGuardianName"], message: "Local guardian is required when the student is an orphan" });
+    if (!d.localGuardianPhone?.trim()) ctx.addIssue({ code: "custom", path: ["localGuardianPhone"], message: "Guardian phone is required when the student is an orphan" });
+  });

@@ -4,6 +4,7 @@ import { getOrCreateDraft } from "@/lib/services/applications";
 import { saveSubmitAction } from "../actions";
 import { RepeatableSubjectRows } from "./_components/RepeatableSubjectRows";
 import { ExistingScholarship } from "./_components/ExistingScholarship";
+import { GuardianFields } from "./_components/GuardianFields";
 
 // "Why the scholarship is needed" — checkbox options; anything else in the saved
 // array is the free-text "other" note.
@@ -126,8 +127,7 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
             <T name="addrPostOffice" label="পোস্ট অফিস / Post office" defaultValue={v("addrPostOffice")} />
             <T name="addrThana" label="থানা/উপজেলা / Thana" defaultValue={v("addrThana")} />
             <T name="addrDistrict" label="জেলা / District" required defaultValue={v("addrDistrict")} />
-            <T name="localGuardianName" label="স্থানীয় অভিভাবক / Local guardian" defaultValue={v("localGuardianName")} />
-            <T name="localGuardianPhone" label="অভিভাবকের ফোন / Guardian phone" defaultValue={v("localGuardianPhone")} />
+            <GuardianFields nameDefault={v("localGuardianName")} phoneDefault={v("localGuardianPhone")} />
             <T name="tutorName" label="প্রাইভেট শিক্ষক / Tutor" defaultValue={v("tutorName")} />
             <T name="tutorPhone" label="শিক্ষকের ফোন / Tutor phone" defaultValue={v("tutorPhone")} />
             <T name="familyMembersMale" label="পরিবারে পুরুষ / Male members" type="number" defaultValue={v("familyMembersMale")} />
@@ -153,8 +153,10 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
         <section className="rounded-2xl border border-hairline bg-ground-2 p-6 shadow-sm">
           <H>Documents</H>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className={lbl}>Last year&apos;s result sheet (photo or PDF)
-              <input type="file" name="resultSheet" accept="image/*,application/pdf" className="mt-1.5 block w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-ground-3 file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-hairline" />
+            <label className={lbl}>Last year&apos;s result sheet (photo or PDF) *
+              {/* Required, unless already uploaded on a prior save. The server also
+                  enforces resultSheetUrl via REQUIRED_TO_SUBMIT. */}
+              <input type="file" name="resultSheet" accept="image/*,application/pdf" required={!v("resultSheetUrl")} className="mt-1.5 block w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-ground-3 file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-hairline" />
               {v("resultSheetUrl") && <span className="mt-1 block text-xs font-medium text-accent">✓ uploaded — re-select to replace</span>}
             </label>
             <label className={lbl}>Your photo (school uniform is fine) *
@@ -162,6 +164,7 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
                   server also enforces photoUrl via REQUIRED_TO_SUBMIT. */}
               <input type="file" name="photo" accept="image/*" required={!v("photoUrl")} className="mt-1.5 block w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-ground-3 file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-hairline" />
               {v("photoUrl") && <span className="mt-1 block text-xs font-medium text-accent">✓ uploaded — re-select to replace</span>}
+              <span className="mt-1 block text-xs text-ink-2">স্টুডিওতে ছবি তুলতে টাকা খরচ করবেন না; স্কুল ইউনিফর্মে মোবাইলে তোলা ছবিই যথেষ্ট। / Don&apos;t spend money on a studio photo; a phone photo in school uniform is fine.</span>
               <span className="mt-1 block text-xs text-ink-2">If you&apos;re selected, this photo may be displayed publicly (with a watermark) on your sponsorship page so donors can support you.</span>
             </label>
           </div>

@@ -4,7 +4,7 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/services/audit";
 import { EmailInUseError } from "@/lib/services/accounts";
-import { type ApplicationDraftInput, REQUIRED_TO_SUBMIT } from "@/lib/validation/applications";
+import { type ApplicationDraftInput, REQUIRED_TO_SUBMIT, orphanGuardianSchema } from "@/lib/validation/applications";
 
 const CODE_TTL_MS = 15 * 60 * 1000;
 
@@ -53,7 +53,10 @@ export async function getOrCreateDraft(userId: string) {
 export async function saveDraft(userId: string, data: ApplicationDraftInput) {
   const app = await getOrCreateDraft(userId);
   if (app.status === "EMAIL_VERIFIED" || app.status === "APPROVED") throw new CodeInvalidError("Application already submitted");
-  return prisma.studentApplication.update({ where: { id: app.id }, data });
+  // Guarantee the English student name is stored uppercase for any caller (the
+  // form also normalizes via Zod; this covers direct/service callers too).
+  const normalized = data.nameEn ? { ...data, nameEn: data.nameEn.toUpperCase() } : data;
+  return prisma.studentApplication.update({ where: { id: app.id }, data: normalized });
 }
 
 /**
@@ -65,6 +68,9 @@ export async function submitApplication(userId: string): Promise<{ applicationId
   const missing: string[] = REQUIRED_TO_SUBMIT.filter((f) => !(app as Record<string, unknown>)[f]);
   if (!app.agreedTerms) missing.push("agreedTerms");
   if (!app.photoConsent) missing.push("photoConsent");
+  // Conditional rule (Zod refine): an orphan applicant must name a local guardian.
+  const guardian = orphanGuardianSchema.safeParse({ isOrphan: app.isOrphan, localGuardianName: app.localGuardianName, localGuardianPhone: app.localGuardianPhone });
+  if (!guardian.success) for (const issue of guardian.error.issues) missing.push(String(issue.path[0]));
   if (missing.length) throw new MissingFieldsError(missing);
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");

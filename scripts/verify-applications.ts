@@ -22,7 +22,7 @@ function check(label: string, ok: boolean, detail = "") { console.log(`  ${ok ? 
 async function expectThrow(label: string, ErrType: new (...a: never[]) => Error, fn: () => Promise<unknown>) {
   try { await fn(); check(label, false, "expected an error"); } catch (e) { check(label, e instanceof ErrType, e instanceof ErrType ? "" : `wrong: ${(e as Error)?.name}`); }
 }
-const REQUIRED = { nameEn: "RIMA AKTER", fatherNameEn: "Karim", motherNameEn: "Fatima", familyMobile: "017xxxxxxxx", gender: "female" as const, schoolName: "Rangamati Govt School", currentClass: "8", addrDistrict: "Rangamati", photoUrl: "/api/files/applications/test-photo.jpg", agreedTerms: true, photoConsent: true };
+const REQUIRED = { nameEn: "RIMA AKTER", fatherNameEn: "Karim", motherNameEn: "Fatima", familyMobile: "017xxxxxxxx", gender: "female" as const, schoolName: "Rangamati Govt School", currentClass: "8", addrDistrict: "Rangamati", photoUrl: "/api/files/applications/test-photo.jpg", resultSheetUrl: "/api/files/applications/test-result.pdf", agreedTerms: true, photoConsent: true };
 const admin = async () => (await prisma.user.findUniqueOrThrow({ where: { email: "admin@bridginggenerations.org" } })).id;
 
 async function applyAndVerify(tag: string) {
@@ -88,6 +88,49 @@ async function main() {
   check("db: otherResults stored as Json array", sameRows(persisted?.otherResults, draft.otherResults));
   check("db: existingScholarship stored as Json object", (persisted?.existingScholarship as { type?: string } | null)?.type === "monthly");
   check("db: scholarshipNeedFor stored as Json array", JSON.stringify(persisted?.scholarshipNeedFor) === JSON.stringify(draft.scholarshipNeedFor));
+
+  console.log("\nPhase 2 — Form 1 hard rules (result sheet, name caps, orphan guardian)");
+  // Result sheet is now hard-required — submit without it is blocked, same pattern as the photo.
+  const regRS = await registerStudentApplicant({ email: `applicant-rs-${T}@x.test`, password: "applicant-password-1", name: "RS" });
+  userIds.push(regRS.userId);
+  await saveDraft(regRS.userId, { ...REQUIRED, resultSheetUrl: undefined });
+  try {
+    await submitApplication(regRS.userId);
+    check("submit blocked without result sheet", false, "expected MissingFieldsError");
+  } catch (e) {
+    check("submit without result sheet → MissingFieldsError lists resultSheetUrl", e instanceof MissingFieldsError && e.fields.includes("resultSheetUrl"), e instanceof MissingFieldsError ? `fields=${e.fields.join(",")}` : `wrong: ${(e as Error)?.name}`);
+  }
+
+  // English student name normalized to uppercase — through the real form mapper…
+  const fdName = new FormData();
+  fdName.set("nameEn", "rima akter lowercase");
+  check("mapper: nameEn uppercased at validation boundary", draftFromForm(fdName).nameEn === "RIMA AKTER LOWERCASE");
+  // …and guaranteed at the persistence boundary for a direct saveDraft caller.
+  const regName = await registerStudentApplicant({ email: `applicant-name-${T}@x.test`, password: "applicant-password-1", name: "Name" });
+  userIds.push(regName.userId);
+  await saveDraft(regName.userId, { ...REQUIRED, nameEn: "test lower name" });
+  const nameRow = await prisma.studentApplication.findFirst({ where: { userId: regName.userId } });
+  check("db: nameEn stored uppercase (direct saveDraft)", nameRow?.nameEn === "TEST LOWER NAME");
+  check("db: parent English names NOT force-uppercased (caps is student-only)", nameRow?.fatherNameEn === "Karim" && nameRow?.motherNameEn === "Fatima");
+
+  // Orphan ⇒ local guardian (name + phone) required at submit.
+  const regOrph = await registerStudentApplicant({ email: `applicant-orph-${T}@x.test`, password: "applicant-password-1", name: "Orphan" });
+  userIds.push(regOrph.userId);
+  await saveDraft(regOrph.userId, { ...REQUIRED, isOrphan: true });
+  try {
+    await submitApplication(regOrph.userId);
+    check("orphan without guardian blocked", false, "expected MissingFieldsError");
+  } catch (e) {
+    check("orphan without guardian → MissingFieldsError lists guardian name+phone", e instanceof MissingFieldsError && e.fields.includes("localGuardianName") && e.fields.includes("localGuardianPhone"), e instanceof MissingFieldsError ? `fields=${e.fields.join(",")}` : `wrong: ${(e as Error)?.name}`);
+  }
+  // Orphan WITH a guardian submits fine.
+  await saveDraft(regOrph.userId, { localGuardianName: "Imam Sahib", localGuardianPhone: "018xxxxxxxx" });
+  check("orphan WITH guardian submits", !!(await submitApplication(regOrph.userId)).devCode);
+  // Non-orphan without a guardian still submits (rule is conditional).
+  const regNon = await registerStudentApplicant({ email: `applicant-nonorph-${T}@x.test`, password: "applicant-password-1", name: "NonOrphan" });
+  userIds.push(regNon.userId);
+  await saveDraft(regNon.userId, { ...REQUIRED, isOrphan: false });
+  check("non-orphan without guardian still submits", !!(await submitApplication(regNon.userId)).devCode);
 
   console.log("\nSubmit is gated on required fields + agreement");
   await saveDraft(reg.userId, { nameEn: "RIMA", gender: "female" }); // partial
