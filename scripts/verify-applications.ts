@@ -152,6 +152,23 @@ async function main() {
   await saveDraft(regSR.userId, REQUIRED);
   check("specialReason optional — submit succeeds without it", !!(await submitApplication(regSR.userId)).devCode);
 
+  // A validation bounce must preserve every consent's checked state: saveDraft
+  // persists all six BEFORE the submit gate rejects, and the form re-renders each
+  // via defaultChecked, so none should silently revert to unticked.
+  const regBounce = await registerStudentApplicant({ email: `applicant-bounce-${T}@x.test`, password: "applicant-password-1", name: "Bounce" });
+  userIds.push(regBounce.userId);
+  await saveDraft(regBounce.userId, { ...REQUIRED, resultSheetUrl: undefined }); // all consents ticked, but result sheet missing → bounces
+  try {
+    await submitApplication(regBounce.userId);
+    check("bounce setup: submit rejected", false, "expected MissingFieldsError");
+  } catch (e) {
+    check("bounce setup: submit rejected on the missing result sheet", e instanceof MissingFieldsError && e.fields.includes("resultSheetUrl"));
+  }
+  const bounced = (await prisma.studentApplication.findFirst({ where: { userId: regBounce.userId } })) as Record<string, unknown> | null;
+  check("bounce preserves all six consents (restorable checked state)",
+    !!bounced && REQUIRED_CONSENTS.every((c) => bounced[c] === true),
+    bounced ? REQUIRED_CONSENTS.map((c) => `${c}=${bounced[c]}`).join(" ") : "no row");
+
   console.log("\nPhase 3B — application→student mapper is the single source of truth");
   const fakeApp = {
     nameEn: "RIMA AKTER", fatherNameEn: "Karim Uddin", motherNameEn: "Fatima Begum",

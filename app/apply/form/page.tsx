@@ -179,7 +179,7 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
           </div>
           <p className="mt-3 text-xs text-ink-2">JPEG, PNG, WebP, or PDF · up to 5 MB. Your result sheet is private — only staff and your mentor can view it.</p>
           <label className="mt-4 flex items-start gap-3 rounded-xl border border-hairline bg-ground-3/50 p-4 text-sm text-ink-2">
-            <input type="checkbox" name="photoConsent" required className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
+            <input type="checkbox" name="photoConsent" required defaultChecked={!!d.photoConsent} className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
             <span>আমি সম্মতি দিচ্ছি যে নির্বাচিত হলে আমার ছবি (জলছাপসহ) আমার স্পনসরশিপ পেজে প্রকাশ করা যেতে পারে। / I consent to my photo being displayed publicly (with a watermark) on my sponsorship page if I&apos;m selected. *</span>
           </label>
         </section>
@@ -201,7 +201,7 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
         </section>
 
         <label className="flex items-start gap-3 rounded-2xl border border-hairline bg-ground-3/50 p-5 text-sm text-ink-2">
-          <input type="checkbox" name="agreedTerms" required className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
+          <input type="checkbox" name="agreedTerms" required defaultChecked={!!d.agreedTerms} className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
           <span>আমি নিশ্চিত করছি উপরের সকল তথ্য সঠিক এবং শর্তাবলীর সাথে একমত। / I confirm the above is accurate and I agree to the terms. *</span>
         </label>
 
