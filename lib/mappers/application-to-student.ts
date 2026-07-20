@@ -25,6 +25,7 @@ export function mapApplicationToStudent(app: StudentApplication, firstName: stri
     fullName: app.nameEn,
     fatherName: app.fatherNameEn,
     motherName: app.motherNameEn,
+    dob: app.dob,
     gender: app.gender,
     community: app.ethnicity,
     ethnicity: app.ethnicity,

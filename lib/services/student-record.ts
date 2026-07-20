@@ -11,16 +11,23 @@ export class RegistrationIdTakenError extends Error {
   constructor() { super("That registration ID is already in use."); this.name = "RegistrationIdTakenError"; }
 }
 
-/** Full admin record: profile + funding + per-session education + real donor list. */
+/** Full admin record: profile + funding + per-session education + real donor list
+ *  + the assigned mentor(s). */
 export async function getStudentRecord(studentId: string) {
   return prisma.student.findUnique({
     where: { id: studentId },
     include: {
       user: { select: { email: true } },
       sessions: { include: { session: { select: { label: true } } }, orderBy: { createdAt: "desc" } },
+      // Active mentor assignment(s): name + id + assigned date for the record page.
+      assignments: {
+        where: { active: true },
+        select: { id: true, assignedAt: true, mentor: { select: { id: true, user: { select: { name: true, email: true } } } } },
+        orderBy: { assignedAt: "desc" },
+      },
       donations: {
         where: { status: "SUCCEEDED" },
-        select: { amount: true, refundedAmount: true, occurredAt: true, isRecurring: true, donor: { select: { name: true, isAnonymous: true } } },
+        select: { amount: true, refundedAmount: true, occurredAt: true, isRecurring: true, donor: { select: { id: true, name: true, isAnonymous: true } } },
         orderBy: { occurredAt: "desc" },
       },
     },
@@ -71,6 +78,18 @@ export async function upsertStudentSession(adminUserId: string, studentId: strin
   // Re-enrollment reactivates the student + updates the grade shown publicly.
   await revalidateMarketing([MARKETING_TAGS.students, MARKETING_TAGS.stats]);
   return row;
+}
+
+/** Delete one per-session education row (scoped to the student). Idempotent —
+ *  a no-op if the row is already gone. Audited when a row is actually removed. */
+export async function deleteStudentSession(adminUserId: string, studentId: string, sessionId: string) {
+  const res = await prisma.studentSession.deleteMany({ where: { studentId, sessionId } });
+  if (res.count === 0) return;
+  await recordAudit(prisma, {
+    actorUserId: adminUserId, action: "student.session.delete", entityType: "Student", entityId: studentId,
+    before: { sessionId },
+  });
+  await revalidateMarketing([MARKETING_TAGS.students, MARKETING_TAGS.stats]);
 }
 
 /** Verified/active toggles. Audited. */

@@ -18,9 +18,16 @@ export const studentRecordSchema = z.object({
   registrationId: z.string().trim().max(60).optional(),
   purpose: t,
   careerGoal: t,
+  dob: z.coerce.date().optional(),
+  ethnicity: t,
+  isOrphan: z.boolean().optional(),
   fatherProfession: t,
   motherProfession: t,
+  fatherPhone: t,
+  motherPhone: t,
   familyIncome: t,
+  incomeSource: t,
+  selectionNote: z.string().trim().max(2000).optional(),
   addrDistrict: t,
   guardianName: t,
   guardianMobile: t,
@@ -45,6 +52,8 @@ export const studentSessionSchema = z.object({
   roll: t,
   formerRoll: t,
   totalStudent: t,
+  degreeLevel: t, // optional BA/MA level (only meaningful for a university)
+  resultSheetUrl: t, // per-session result sheet URL (set from the upload)
 });
 
 export type StudentRecordInput = z.infer<typeof studentRecordSchema>;

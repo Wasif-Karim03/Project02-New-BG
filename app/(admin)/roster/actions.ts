@@ -4,10 +4,21 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/guards";
 import {
-  RegistrationIdTakenError, deactivateAllStudents, setStudentFlags, updateStudentRecord, upsertStudentSession,
+  RegistrationIdTakenError, deactivateAllStudents, deleteStudentSession, setStudentFlags, updateStudentRecord, upsertStudentSession,
 } from "@/lib/services/student-record";
 import { NotFoundError as StudentNotFoundError, deleteStudentCompletely } from "@/lib/services/deletion";
 import { studentRecordSchema, studentSessionSchema } from "@/lib/validation/student-record";
+import { UploadRejectedError, saveUpload } from "@/lib/storage";
+
+async function uploadIfPresent(v: FormDataEntryValue | null): Promise<string | undefined> {
+  if (v instanceof File && v.size > 0) {
+    return `/api/files/${await saveUpload("student-sessions", v.type, Buffer.from(await v.arrayBuffer()))}`;
+  }
+  return undefined;
+}
+// Yes/No <select>: "true"/"false" → boolean, anything else → unchanged.
+const boolField = (v: FormDataEntryValue | null): boolean | undefined =>
+  v === "true" ? true : v === "false" ? false : undefined;
 
 const dollarsToCents = (v: FormDataEntryValue | null) => {
   const n = Number(v);
@@ -33,9 +44,16 @@ export async function updateRecordAction(formData: FormData) {
     registrationId: str(formData.get("registrationId")),
     purpose: str(formData.get("purpose")),
     careerGoal: str(formData.get("careerGoal")),
+    dob: str(formData.get("dob")), // coerced to a Date by the schema; empty stays unchanged
+    ethnicity: str(formData.get("ethnicity")),
+    isOrphan: boolField(formData.get("isOrphan")),
     fatherProfession: str(formData.get("fatherProfession")),
     motherProfession: str(formData.get("motherProfession")),
+    fatherPhone: str(formData.get("fatherPhone")),
+    motherPhone: str(formData.get("motherPhone")),
     familyIncome: str(formData.get("familyIncome")),
+    incomeSource: str(formData.get("incomeSource")),
+    selectionNote: str(formData.get("selectionNote")),
     addrDistrict: str(formData.get("addrDistrict")),
     guardianName: str(formData.get("guardianName")),
     guardianMobile: str(formData.get("guardianMobile")),
@@ -62,6 +80,15 @@ export async function updateRecordAction(formData: FormData) {
 export async function upsertSessionAction(formData: FormData) {
   const admin = await requireAdmin();
   const id = String(formData.get("studentId"));
+  // A new result-sheet file (if any) is uploaded first; when absent, resultSheetUrl
+  // stays undefined so the upsert keeps the row's existing sheet.
+  let resultSheetUrl: string | undefined;
+  try {
+    resultSheetUrl = await uploadIfPresent(formData.get("resultSheet"));
+  } catch (e) {
+    if (e instanceof UploadRejectedError) redirect(`/roster/${id}?error=${encodeURIComponent(e.message)}`);
+    throw e;
+  }
   const parsed = studentSessionSchema.safeParse({
     sessionId: str(formData.get("sessionId")),
     institutionName: str(formData.get("institutionName")),
@@ -69,9 +96,19 @@ export async function upsertSessionAction(formData: FormData) {
     roll: str(formData.get("roll")),
     formerRoll: str(formData.get("formerRoll")),
     totalStudent: str(formData.get("totalStudent")),
+    degreeLevel: str(formData.get("degreeLevel")),
+    resultSheetUrl,
   });
   if (!parsed.success) redirect(`/roster/${id}?error=${encodeURIComponent("Pick an academic session")}`);
   await upsertStudentSession(admin.id, id, parsed.data);
+  revalidatePath(`/roster/${id}`);
+}
+
+export async function deleteSessionAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = String(formData.get("studentId"));
+  const sessionId = String(formData.get("sessionId"));
+  await deleteStudentSession(admin.id, id, sessionId);
   revalidatePath(`/roster/${id}`);
 }
 

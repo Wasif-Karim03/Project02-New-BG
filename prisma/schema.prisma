@@ -445,6 +445,11 @@ model Student {
   guardianAddress  String?
   tutorName        String?
   tutorPhone       String?
+  // Phase 4 admin-record additions (all nullable, additive)
+  fatherPhone      String? // per-parent contact
+  motherPhone      String?
+  incomeSource     String? // source of income, distinct from familyIncome (the amount)
+  selectionNote    String? // admin-only: why the selection team picked this student
   purpose          String?
   careerGoal       String?
   // Funding plan (money = integer MINOR UNITS, USD v1)
@@ -511,6 +516,7 @@ model StudentApplication {
   gender       String?
   isOrphan     Boolean @default(false)
   ethnicity    String?
+  dob          DateTime? // date of birth — mapped to Student.dob at approval (Phase 4)
 
   // খ. Education info
   schoolName           String?
@@ -623,6 +629,8 @@ model StudentSession {
   roll            String?
   formerRoll      String?
   totalStudent    String?
+  degreeLevel     String? // optional BA/MA level — only meaningful when institution is a university (Phase 4)
+  resultSheetUrl  String? // per-session result sheet (/api/files/...) — Phase 4
   amountNeeded    Int? // funding need for this student this session, in MINOR UNITS
   currency        String       @default("USD")
   status          RecordStatus @default(PENDING)

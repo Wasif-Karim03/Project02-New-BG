@@ -13,6 +13,7 @@ export const applicationDraftSchema = z.object({
   // ক. Student info
   nameBn: s, nameEn: su, fatherNameBn: s, fatherNameEn: s, motherNameBn: s, motherNameEn: s,
   familyMobile: s, gender: z.enum(["male", "female", "other"]).optional(), isOrphan: z.boolean().optional(), ethnicity: s,
+  dob: z.coerce.date().optional(),
   // খ. Education
   schoolName: s, classNeeded: s, currentClass: s, roll: s, totalStudents: s,
   favoriteSubject: s, favoriteSubjectMarks: s, mathMarks: s, englishMarks: s,
