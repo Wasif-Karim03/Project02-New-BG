@@ -4,7 +4,7 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/services/audit";
 import { EmailInUseError } from "@/lib/services/accounts";
-import { type ApplicationDraftInput, REQUIRED_TO_SUBMIT, orphanGuardianSchema } from "@/lib/validation/applications";
+import { type ApplicationDraftInput, REQUIRED_TO_SUBMIT, REQUIRED_CONSENTS, orphanGuardianSchema } from "@/lib/validation/applications";
 
 const CODE_TTL_MS = 15 * 60 * 1000;
 
@@ -66,8 +66,8 @@ export async function saveDraft(userId: string, data: ApplicationDraftInput) {
 export async function submitApplication(userId: string): Promise<{ applicationId: string; devCode?: string }> {
   const app = await getOrCreateDraft(userId);
   const missing: string[] = REQUIRED_TO_SUBMIT.filter((f) => !(app as Record<string, unknown>)[f]);
-  if (!app.agreedTerms) missing.push("agreedTerms");
-  if (!app.photoConsent) missing.push("photoConsent");
+  // Every required consent must be ticked (each recorded/enforced discretely).
+  for (const c of REQUIRED_CONSENTS) if (!(app as Record<string, unknown>)[c]) missing.push(c);
   // Conditional rule (Zod refine): an orphan applicant must name a local guardian.
   const guardian = orphanGuardianSchema.safeParse({ isOrphan: app.isOrphan, localGuardianName: app.localGuardianName, localGuardianPhone: app.localGuardianPhone });
   if (!guardian.success) for (const issue of guardian.error.issues) missing.push(String(issue.path[0]));

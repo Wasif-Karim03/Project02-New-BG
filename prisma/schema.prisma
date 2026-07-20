@@ -557,6 +557,14 @@ model StudentApplication {
   // Guardian consent to display the student's photo publicly (watermarked). Gates
   // portraitConsent=GRANTED at approval; required to submit the application.
   photoConsent   Boolean @default(false)
+  // Discrete, individually-recorded agreements (Phase 3). Each is required to
+  // submit and gated separately via REQUIRED_CONSENTS (same MissingFieldsError
+  // pattern as the uploads). specialReason is an optional free-text note.
+  consentVerificationCalls Boolean @default(false)
+  consentMonthlyPayment    Boolean @default(false)
+  consentMentorCheckins    Boolean @default(false)
+  consentCancelPolicy      Boolean @default(false)
+  specialReason            String?
   resultSheetUrl String?
   photoUrl       String?
 

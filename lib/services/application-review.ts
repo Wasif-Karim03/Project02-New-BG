@@ -5,6 +5,7 @@ import { sendDecisionEmail } from "@/lib/services/account-emails";
 import { recordAudit } from "@/lib/services/audit";
 import { MARKETING_TAGS, revalidateMarketing } from "@/lib/services/revalidate-marketing";
 import { generateUniqueStudentSlug, slugify } from "@/lib/slug";
+import { firstNameFrom, mapApplicationToStudent } from "@/lib/mappers/application-to-student";
 
 export class NotFoundError extends Error {
   constructor() { super("Application not found"); this.name = "NotFoundError"; }
@@ -31,11 +32,6 @@ export async function getApplicationForReview(adminUserId: string, applicationId
   if (!app) throw new NotFoundError();
   await recordAudit(prisma, { actorUserId: adminUserId, action: "application.read", entityType: "StudentApplication", entityId: applicationId });
   return app;
-}
-
-function firstNameFrom(nameEn: string | null, fallback: string): string {
-  const t = nameEn?.trim().split(/\s+/)[0];
-  return t && t.length > 0 ? t : fallback;
 }
 
 /**
@@ -93,25 +89,8 @@ export async function approveApplication(adminUserId: string, applicationId: str
       schoolId,
       verified: true,
       active: true, // (re-)approval brings the student onto the public site
-      firstName,
-      fullName: app.nameEn,
-      fatherName: app.fatherNameEn,
-      motherName: app.motherNameEn,
-      gender: app.gender,
-      community: app.ethnicity,
-      ethnicity: app.ethnicity,
-      isOrphan: app.isOrphan,
-      fatherProfession: app.fatherProfession,
-      motherProfession: app.motherProfession,
-      familyIncome: app.monthlyFamilyIncome,
-      addrVillage: app.addrVillage,
-      addrDistrict: app.addrDistrict,
-      guardianName: app.localGuardianName,
-      guardianMobile: app.localGuardianPhone,
-      tutorName: app.tutorName,
-      tutorPhone: app.tutorPhone,
-      careerGoal: app.careerGoal,
-      portraitUrl: app.photoUrl,
+      // Application → student field mapping lives in ONE place (the mapper).
+      ...mapApplicationToStudent(app, firstName),
       // Publish the photo ONLY if the applicant consented to public display (the
       // required "photoConsent" checkbox, recorded on the application). The image
       // is served watermarked; admin can still toggle visibility per-student.

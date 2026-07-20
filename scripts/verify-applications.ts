@@ -7,11 +7,13 @@
  *
  * Run after the seed:  npx tsx scripts/verify-applications.ts
  */
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type StudentApplication } from "@prisma/client";
 import { isSignInAllowed } from "@/lib/auth/signin-policy";
 import { CodeInvalidError, MissingFieldsError, registerStudentApplicant, saveDraft, submitApplication, verifyEmail } from "@/lib/services/applications";
 import { ReasonRequiredError, approveApplication, listPendingApplications, rejectApplication } from "@/lib/services/application-review";
 import { draftFromForm } from "@/lib/apply/draft-from-form";
+import { REQUIRED_CONSENTS } from "@/lib/validation/applications";
+import { mapApplicationToStudent } from "@/lib/mappers/application-to-student";
 
 const prisma = new PrismaClient();
 const T = Date.now();
@@ -22,7 +24,7 @@ function check(label: string, ok: boolean, detail = "") { console.log(`  ${ok ? 
 async function expectThrow(label: string, ErrType: new (...a: never[]) => Error, fn: () => Promise<unknown>) {
   try { await fn(); check(label, false, "expected an error"); } catch (e) { check(label, e instanceof ErrType, e instanceof ErrType ? "" : `wrong: ${(e as Error)?.name}`); }
 }
-const REQUIRED = { nameEn: "RIMA AKTER", fatherNameEn: "Karim", motherNameEn: "Fatima", familyMobile: "017xxxxxxxx", gender: "female" as const, schoolName: "Rangamati Govt School", currentClass: "8", addrDistrict: "Rangamati", photoUrl: "/api/files/applications/test-photo.jpg", resultSheetUrl: "/api/files/applications/test-result.pdf", agreedTerms: true, photoConsent: true };
+const REQUIRED = { nameEn: "RIMA AKTER", fatherNameEn: "Karim", motherNameEn: "Fatima", familyMobile: "017xxxxxxxx", gender: "female" as const, schoolName: "Rangamati Govt School", currentClass: "8", addrDistrict: "Rangamati", photoUrl: "/api/files/applications/test-photo.jpg", resultSheetUrl: "/api/files/applications/test-result.pdf", agreedTerms: true, photoConsent: true, consentVerificationCalls: true, consentMonthlyPayment: true, consentMentorCheckins: true, consentCancelPolicy: true };
 const admin = async () => (await prisma.user.findUniqueOrThrow({ where: { email: "admin@bridginggenerations.org" } })).id;
 
 async function applyAndVerify(tag: string) {
@@ -131,6 +133,65 @@ async function main() {
   userIds.push(regNon.userId);
   await saveDraft(regNon.userId, { ...REQUIRED, isOrphan: false });
   check("non-orphan without guardian still submits", !!(await submitApplication(regNon.userId)).devCode);
+
+  console.log("\nPhase 3A — each required consent gates submission");
+  for (const consent of REQUIRED_CONSENTS) {
+    const reg = await registerStudentApplicant({ email: `applicant-consent-${consent}-${T}@x.test`, password: "applicant-password-1", name: "Consent" });
+    userIds.push(reg.userId);
+    await saveDraft(reg.userId, { ...REQUIRED, [consent]: false });
+    try {
+      await submitApplication(reg.userId);
+      check(`submit blocked when ${consent} unchecked`, false, "expected MissingFieldsError");
+    } catch (e) {
+      check(`submit blocked when ${consent} unchecked → lists ${consent}`, e instanceof MissingFieldsError && e.fields.includes(consent), e instanceof MissingFieldsError ? `fields=${e.fields.join(",")}` : `wrong: ${(e as Error)?.name}`);
+    }
+  }
+  // specialReason is optional — a submit without it still succeeds (REQUIRED omits it).
+  const regSR = await registerStudentApplicant({ email: `applicant-specialreason-${T}@x.test`, password: "applicant-password-1", name: "SR" });
+  userIds.push(regSR.userId);
+  await saveDraft(regSR.userId, REQUIRED);
+  check("specialReason optional — submit succeeds without it", !!(await submitApplication(regSR.userId)).devCode);
+
+  // A validation bounce must preserve every consent's checked state: saveDraft
+  // persists all six BEFORE the submit gate rejects, and the form re-renders each
+  // via defaultChecked, so none should silently revert to unticked.
+  const regBounce = await registerStudentApplicant({ email: `applicant-bounce-${T}@x.test`, password: "applicant-password-1", name: "Bounce" });
+  userIds.push(regBounce.userId);
+  await saveDraft(regBounce.userId, { ...REQUIRED, resultSheetUrl: undefined }); // all consents ticked, but result sheet missing → bounces
+  try {
+    await submitApplication(regBounce.userId);
+    check("bounce setup: submit rejected", false, "expected MissingFieldsError");
+  } catch (e) {
+    check("bounce setup: submit rejected on the missing result sheet", e instanceof MissingFieldsError && e.fields.includes("resultSheetUrl"));
+  }
+  const bounced = (await prisma.studentApplication.findFirst({ where: { userId: regBounce.userId } })) as Record<string, unknown> | null;
+  check("bounce preserves all six consents (restorable checked state)",
+    !!bounced && REQUIRED_CONSENTS.every((c) => bounced[c] === true),
+    bounced ? REQUIRED_CONSENTS.map((c) => `${c}=${bounced[c]}`).join(" ") : "no row");
+
+  console.log("\nPhase 3B — application→student mapper is the single source of truth");
+  const fakeApp = {
+    nameEn: "RIMA AKTER", fatherNameEn: "Karim Uddin", motherNameEn: "Fatima Begum",
+    gender: "female", ethnicity: "Chakma", isOrphan: true,
+    fatherProfession: "Farmer", motherProfession: "Homemaker", monthlyFamilyIncome: "8000",
+    addrVillage: "Rangapani", addrDistrict: "Rangamati",
+    localGuardianName: "Imam Sahib", localGuardianPhone: "018xxxxxxxx",
+    tutorName: "Mr Roy", tutorPhone: "019xxxxxxxx", careerGoal: "Doctor",
+    photoUrl: "/api/files/applications/p.jpg",
+  } as unknown as StudentApplication;
+  const m = mapApplicationToStudent(fakeApp, "Rima");
+  check("mapper: firstName passed through (not split)", m.firstName === "Rima");
+  check("mapper: fullName ← nameEn (not split)", m.fullName === "RIMA AKTER");
+  check("mapper: fatherName ← fatherNameEn", m.fatherName === "Karim Uddin");
+  check("mapper: motherName ← motherNameEn", m.motherName === "Fatima Begum");
+  check("mapper: guardianName ← localGuardianName (naming drift)", m.guardianName === "Imam Sahib");
+  check("mapper: guardianMobile ← localGuardianPhone (naming drift)", m.guardianMobile === "018xxxxxxxx");
+  check("mapper: familyIncome ← monthlyFamilyIncome (naming drift)", m.familyIncome === "8000");
+  check("mapper: community & ethnicity ← ethnicity", m.community === "Chakma" && m.ethnicity === "Chakma");
+  check("mapper: gender/isOrphan/professions/address/tutor/career/portrait all land correctly",
+    m.gender === "female" && m.isOrphan === true && m.fatherProfession === "Farmer" && m.motherProfession === "Homemaker" &&
+    m.addrVillage === "Rangapani" && m.addrDistrict === "Rangamati" && m.tutorName === "Mr Roy" && m.tutorPhone === "019xxxxxxxx" &&
+    m.careerGoal === "Doctor" && m.portraitUrl === "/api/files/applications/p.jpg");
 
   console.log("\nSubmit is gated on required fields + agreement");
   await saveDraft(reg.userId, { nameEn: "RIMA", gender: "female" }); // partial

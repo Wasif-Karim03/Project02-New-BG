@@ -14,6 +14,15 @@ const NEED_OPTS: [string, string][] = [
   ["materials", "বই ও উপকরণ / Books & materials"],
 ];
 
+// Discrete required agreements (Phase 3), each recorded separately. Rendered
+// bilingual; server gates every one via REQUIRED_CONSENTS.
+const AGREEMENTS: [string, string][] = [
+  ["consentVerificationCalls", "আমি BriGen থেকে যাচাইয়ের জন্য ফোন কল গ্রহণ করতে সম্মত। / I accept verification phone calls from BriGen."],
+  ["consentMonthlyPayment", "আমি বুঝি যে বৃত্তির অর্থ প্রতি মাসে বিকাশ/নগদ/রকেটের মাধ্যমে দেওয়া হয়। / I understand payment is made monthly via bKash / Nagad / Rocket."],
+  ["consentMentorCheckins", "আমি প্রতি মাসে মেন্টরের সাথে চেক-ইন করব এবং মেন্টরের কল মিস করলে ফিরতি কল দেব। / I will do monthly mentor check-ins (and call back if I miss the mentor's call)."],
+  ["consentCancelPolicy", "আমি বুঝি যে একাডেমিক অগ্রগতি না হলে বৃত্তি বাতিল হতে পারে। / I understand the scholarship can be cancelled if there is no academic progress."],
+];
+
 type SearchParams = Promise<{ error?: string }>;
 const f = "mt-1.5 w-full rounded-lg border border-hairline bg-white px-3 py-2.5 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40";
 const lbl = "block text-sm font-medium text-ink-2";
@@ -170,13 +179,29 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
           </div>
           <p className="mt-3 text-xs text-ink-2">JPEG, PNG, WebP, or PDF · up to 5 MB. Your result sheet is private — only staff and your mentor can view it.</p>
           <label className="mt-4 flex items-start gap-3 rounded-xl border border-hairline bg-ground-3/50 p-4 text-sm text-ink-2">
-            <input type="checkbox" name="photoConsent" required className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
+            <input type="checkbox" name="photoConsent" required defaultChecked={!!d.photoConsent} className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
             <span>আমি সম্মতি দিচ্ছি যে নির্বাচিত হলে আমার ছবি (জলছাপসহ) আমার স্পনসরশিপ পেজে প্রকাশ করা যেতে পারে। / I consent to my photo being displayed publicly (with a watermark) on my sponsorship page if I&apos;m selected. *</span>
           </label>
         </section>
 
+        <section className="rounded-2xl border border-hairline bg-ground-2 p-6 shadow-sm">
+          <H>সম্মতি / Agreements</H>
+          <p className="mt-2 text-sm text-ink-2">প্রতিটি সম্মতি প্রয়োজন / Each of these is required.</p>
+          <div className="mt-4 grid gap-3">
+            {AGREEMENTS.map(([name, text]) => (
+              <label key={name} className="flex items-start gap-3 rounded-xl border border-hairline bg-ground-3/50 p-4 text-sm text-ink-2">
+                <input type="checkbox" name={name} required defaultChecked={!!(d as Record<string, unknown>)[name]} className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
+                <span>{text} *</span>
+              </label>
+            ))}
+          </div>
+          <label className={`${lbl} mt-4`}>বৃত্তির জন্য বিশেষ কারণ (ঐচ্ছিক) / Special reason for needing the scholarship (optional)
+            <textarea name="specialReason" rows={3} defaultValue={v("specialReason")} className={f} />
+          </label>
+        </section>
+
         <label className="flex items-start gap-3 rounded-2xl border border-hairline bg-ground-3/50 p-5 text-sm text-ink-2">
-          <input type="checkbox" name="agreedTerms" required className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
+          <input type="checkbox" name="agreedTerms" required defaultChecked={!!d.agreedTerms} className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
           <span>আমি নিশ্চিত করছি উপরের সকল তথ্য সঠিক এবং শর্তাবলীর সাথে একমত। / I confirm the above is accurate and I agree to the terms. *</span>
         </label>
 

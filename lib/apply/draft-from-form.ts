@@ -38,6 +38,10 @@ export function draftFromForm(formData: FormData) {
   obj.isOrphan = formData.get("isOrphan") === "on";
   obj.agreedTerms = formData.get("agreedTerms") === "on";
   obj.photoConsent = formData.get("photoConsent") === "on";
+  obj.consentVerificationCalls = formData.get("consentVerificationCalls") === "on";
+  obj.consentMonthlyPayment = formData.get("consentMonthlyPayment") === "on";
+  obj.consentMentorCheckins = formData.get("consentMentorCheckins") === "on";
+  obj.consentCancelPolicy = formData.get("consentCancelPolicy") === "on";
 
   // Repeatable groups → Json arrays.
   const otherResults = groupRows(formData, "otherResults");
