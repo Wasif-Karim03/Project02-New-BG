@@ -68,7 +68,10 @@ export default async function MyStudentsPage({ searchParams }: { searchParams: S
         <ul className="mt-6 space-y-6">
           {students.map((s) => (
             <li key={s.id} className="rounded-lg border border-black/10 p-5">
-              <div className="font-semibold">{s.firstName}</div>
+              <div className="flex items-center justify-between">
+                <div className="font-semibold">{s.firstName}</div>
+                <a href={`/my-students/${s.id}/evaluate`} className="rounded bg-black/5 px-3 py-1 text-xs font-medium text-black/70 hover:bg-black/10">Monthly evaluation →</a>
+              </div>
               <form action={createEvaluationAction} className="mt-3 grid gap-3 sm:grid-cols-2">
                 <input type="hidden" name="studentId" value={s.id} />
                 <label className={label}>Type<input name="evaluationType" placeholder="home visit, call…" className={field} /></label>

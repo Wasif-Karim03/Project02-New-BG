@@ -319,9 +319,10 @@ model Mentor {
   bio      String?
   photoUrl String? // profile picture (from the application)
 
-  assignments  MentorAssignment[]
-  evaluations  StudentEvaluation[]
-  applications MentorApplication[]
+  assignments       MentorAssignment[]
+  evaluations       StudentEvaluation[]
+  mentorEvaluations MentorEvaluation[]
+  applications      MentorApplication[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -470,9 +471,10 @@ model Student {
   reviewedById String?
   reviewedAt   DateTime?
 
-  sessions      StudentSession[]
-  evaluations   StudentEvaluation[]
-  assignments   MentorAssignment[]
+  sessions          StudentSession[]
+  evaluations       StudentEvaluation[]
+  mentorEvaluations MentorEvaluation[]
+  assignments       MentorAssignment[]
   donations     Donation[]
   subscriptions Subscription[]
   applications  StudentApplication[]
@@ -603,10 +605,11 @@ model AcademicSession {
   isCurrent Boolean   @default(false)
   remarks   String?
 
-  studentSessions StudentSession[]
-  assignments     MentorAssignment[]
-  evaluations     StudentEvaluation[]
-  donations       Donation[]
+  studentSessions   StudentSession[]
+  assignments       MentorAssignment[]
+  evaluations       StudentEvaluation[]
+  mentorEvaluations MentorEvaluation[]
+  donations         Donation[]
   // NOTE: no `subscriptions` back-relation. A recurring Subscription is a
   // donor-scoped, ongoing commitment that spans terms; per-cycle attribution to
   // a session lives on each Donation.sessionId, not on the Subscription.
@@ -688,6 +691,78 @@ model StudentEvaluation {
   remarks        String?
   fileUrl        String?
   publishConsent Boolean        @default(false) // may this surface publicly?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([mentorId])
+}
+
+// ---------------------------------------------------------------------------
+// MENTOR EVALUATION (Form 4 — the monthly evaluation the mentor fills for a
+// student they are assigned to. Distinct from StudentEvaluation, which is the
+// lighter contact/visit log. Written + read ONLY through the frozen mentor-access
+// guard. Additive: this model is new; StudentEvaluation is untouched.)
+// ---------------------------------------------------------------------------
+
+enum SixPointRating {
+  EXCELLENT
+  VERY_GOOD
+  GOOD
+  FAIR
+  POOR
+  VERY_POOR
+}
+
+// Overall progress grade. NOTE: the owner's source doc listed the bands as
+// A/B/D/C with C at 1.7–2.5 and D at 2.5–3.4 — an ordering/overlap error. Corrected
+// here to A(4.5–5.0), B(3.5–4.4), C(2.5–3.4), D(1.7–2.5), displayed A,B,C,D. The
+// numeric bands live in PROGRESS_GRADE_BANDS (lib/validation/mentor-evaluation.ts).
+enum ProgressGrade {
+  A
+  B
+  C
+  D
+}
+
+model MentorEvaluation {
+  id        String  @id @default(cuid())
+  studentId String
+  sessionId String?
+  mentorId  String
+
+  student Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session AcademicSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  mentor  Mentor           @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+
+  date DateTime @default(now())
+
+  // Identity header, snapshotted from Student/StudentSession at creation so the
+  // evaluation is a stable historical record even if the live record later changes.
+  studentName    String?
+  mentorName     String?
+  privateTeacher String?
+  classGrade     String?
+  currentRoll    String?
+  formerRoll     String?
+  institution    String?
+
+  // Bangla study-habit questions as a structured list so questions can be added
+  // later without a migration: [{ question, answer: "yes"|"no"|null, comment }].
+  studyHabits Json?
+
+  // Two 6-point ratings.
+  participation       SixPointRating?
+  parentCommunication SixPointRating?
+
+  // Overall progress grade (A/B/C/D — see the ProgressGrade comment above).
+  progressGrade ProgressGrade?
+
+  // Per-subject progress notes as a structured list: [{ subject, note }].
+  subjectNotes Json?
+
+  overallEvaluation String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
