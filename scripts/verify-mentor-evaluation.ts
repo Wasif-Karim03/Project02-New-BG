@@ -13,7 +13,7 @@ import { registerMentor, adminCreateStudent } from "@/lib/services/accounts";
 import { approveUser } from "@/lib/services/approvals";
 import { assignStudentToMentor } from "@/lib/services/assignments";
 import { getEvaluationContext, listMentorEvaluations, submitMentorEvaluation } from "@/lib/services/mentor-evaluation";
-import { PROGRESS_GRADE_BANDS, STUDY_HABIT_QUESTIONS, mentorEvaluationSchema } from "@/lib/validation/mentor-evaluation";
+import { PROGRESS_GRADE_BANDS, STUDY_HABIT_ITEMS, mentorEvaluationSchema } from "@/lib/validation/mentor-evaluation";
 
 const prisma = new PrismaClient();
 const T = Date.now();
@@ -67,11 +67,13 @@ async function main() {
     JSON.stringify(ctx));
 
   console.log("\nFull evaluation round-trips (within the guard)");
+  const yesNoQ = STUDY_HABIT_ITEMS.find((x) => x.type === "yes_no")!;
+  const openQ = STUDY_HABIT_ITEMS.find((x) => x.type === "open_text")!;
   const created = await submitMentorEvaluation(mentorA.userId, s1.studentId, {
     date: new Date("2026-03-15T00:00:00.000Z"),
     studyHabits: [
-      { question: STUDY_HABIT_QUESTIONS[0]!, answer: "yes", comment: "সকালে পড়ে" },
-      { question: STUDY_HABIT_QUESTIONS[4]!, answer: null, comment: "রুটিন ভালো" },
+      { question: yesNoQ.text, type: "yes_no", answer: "yes", comment: "সকালে পড়ে" },
+      { question: openQ.text, type: "open_text", answer: null, comment: "প্রতিদিন সন্ধ্যায় শেষ করি" },
     ],
     participation: "VERY_GOOD",
     parentCommunication: "GOOD",
@@ -84,8 +86,10 @@ async function main() {
   check("6-point ratings + grade persist", created.participation === "VERY_GOOD" && created.parentCommunication === "GOOD" && created.progressGrade === "B");
   const back = (await listMentorEvaluations(mentorA.userId, s1.studentId)).find((e) => e.id === created.id);
   check("evaluation reads back through the guard", !!back && back.overallEvaluation === "Steady progress overall.");
-  const sh = back?.studyHabits as { question: string; answer: string | null; comment?: string }[] | undefined;
-  check("study-habit answers round-trip through Json (verbatim question kept)", !!sh && sh[0]!.question === STUDY_HABIT_QUESTIONS[0] && sh[0]!.answer === "yes" && sh[0]!.comment === "সকালে পড়ে" && sh[1]!.answer === null);
+  const sh = back?.studyHabits as { question: string; type?: string; answer: string | null; comment?: string }[] | undefined;
+  check("yes_no answer round-trips (verbatim question + type + answer + comment)", !!sh && sh[0]!.question === yesNoQ.text && sh[0]!.type === "yes_no" && sh[0]!.answer === "yes" && sh[0]!.comment === "সকালে পড়ে");
+  check("open_text answer round-trips (type open_text, answer null, response in comment)", !!sh && sh[1]!.type === "open_text" && sh[1]!.answer === null && sh[1]!.comment === "প্রতিদিন সন্ধ্যায় শেষ করি");
+  check("study-habit item list has both a guidance instruction and typed questions", STUDY_HABIT_ITEMS.some((x) => x.type === "guidance") && STUDY_HABIT_ITEMS.some((x) => x.type === "yes_no") && STUDY_HABIT_ITEMS.some((x) => x.type === "open_text"));
   const sn = back?.subjectNotes as { subject: string; note?: string }[] | undefined;
   check("per-subject notes round-trip through Json", !!sn && sn.some((x) => x.subject === "Math" && x.note === "Improving"));
   check("evaluation create is audited", await auditExists("mentor.evaluation.create", s1.studentId));

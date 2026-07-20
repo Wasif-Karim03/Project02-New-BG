@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { AccessDeniedError } from "@/lib/auth/mentor-access";
 import { getEvaluationContext, listMentorEvaluations } from "@/lib/services/mentor-evaluation";
 import {
-  EVALUATION_SUBJECTS, PROGRESS_GRADE_BANDS, SIX_POINT_LABELS, STUDY_HABIT_QUESTIONS,
+  EVALUATION_SUBJECTS, PROGRESS_GRADE_BANDS, SIX_POINT_LABELS, STUDY_HABIT_ITEMS,
   progressGrade, sixPointRating,
 } from "@/lib/validation/mentor-evaluation";
 import { submitEvaluationAction } from "./actions";
@@ -46,6 +46,15 @@ export default async function EvaluatePage({ params, searchParams }: { params: P
     ["Institution", header.institution],
   ];
 
+  // Number only the questions (count of non-guidance items up to here); guidance
+  // items render as instruction text, not numbered rows.
+  const studyItems = STUDY_HABIT_ITEMS.map((item, i) => ({
+    text: item.text,
+    type: item.type,
+    i,
+    qn: item.type === "guidance" ? 0 : STUDY_HABIT_ITEMS.slice(0, i + 1).filter((x) => x.type !== "guidance").length,
+  }));
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <Link href="/my-students" className="text-xs text-black/50 hover:underline">← My students</Link>
@@ -69,20 +78,27 @@ export default async function EvaluatePage({ params, searchParams }: { params: P
         <input type="hidden" name="studentId" value={studentId} />
         <label className={label}>Date<input type="date" name="date" className={`${field} max-w-xs`} /></label>
 
-        {/* Study-habit questions (Bangla, verbatim) — optional Yes/No + comment. */}
+        {/* Study-habit items (Bangla, verbatim). yes_no → Yes/No + comment;
+            open_text → free-text input; guidance → an instruction to the mentor. */}
         <section className="rounded-lg border border-black/10 p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-black/50">অধ্যয়ন-অভ্যাস / Study habits</h2>
           <ol className="mt-3 space-y-4">
-            {STUDY_HABIT_QUESTIONS.map((q, i) => (
-              <li key={i} className="border-b border-black/5 pb-3 last:border-0">
-                <p className="text-sm text-black/80">{i + 1}. {q}</p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-4">
-                  <span className="flex items-center gap-3 text-sm">
-                    <label className="flex items-center gap-1"><input type="radio" name={`sh.${i}.answer`} value="yes" /> হ্যাঁ / Yes</label>
-                    <label className="flex items-center gap-1"><input type="radio" name={`sh.${i}.answer`} value="no" /> না / No</label>
-                  </span>
-                  <input name={`sh.${i}.comment`} placeholder="মন্তব্য / comment" className="flex-1 rounded border border-black/15 px-2 py-1 text-sm" />
-                </div>
+            {studyItems.map((item) => item.type === "guidance" ? (
+              <li key={item.i} className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">💡 {item.text}</li>
+            ) : (
+              <li key={item.i} className="border-b border-black/5 pb-3 last:border-0">
+                <p className="text-sm text-black/80">{item.qn}. {item.text}</p>
+                {item.type === "yes_no" ? (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-4">
+                    <span className="flex items-center gap-3 text-sm">
+                      <label className="flex items-center gap-1"><input type="radio" name={`sh.${item.i}.answer`} value="yes" /> হ্যাঁ / Yes</label>
+                      <label className="flex items-center gap-1"><input type="radio" name={`sh.${item.i}.answer`} value="no" /> না / No</label>
+                    </span>
+                    <input name={`sh.${item.i}.comment`} placeholder="মন্তব্য / comment" className="flex-1 rounded border border-black/15 px-2 py-1 text-sm" />
+                  </div>
+                ) : (
+                  <input name={`sh.${item.i}.comment`} placeholder="উত্তর / answer" className="mt-1.5 w-full rounded border border-black/15 px-2 py-1 text-sm" />
+                )}
               </li>
             ))}
           </ol>

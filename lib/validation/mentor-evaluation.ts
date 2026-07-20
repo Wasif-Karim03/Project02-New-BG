@@ -1,31 +1,37 @@
 import { z } from "zod";
 
-// Verbatim Bangla study-habit questions from the owner's doc. Kept as DATA (not
-// schema columns) so questions can be added/edited/reordered without a migration.
-// Each is answered with an OPTIONAL Yes/No plus a free-text comment — most of these
-// are open-ended, so the substantive answer goes in the comment and Yes/No is
-// optional.
-export const STUDY_HABIT_QUESTIONS: string[] = [
-  "আপনি কি সকালে পড়াশোনা করেন?",
-  "আপনি প্রতিদিন কখন পড়াশোনা শেষ করেন?",
-  "আপনি প্রতিদিন কতক্ষণ পড়াশোনা করেন?",
-  "আপনি কি কোনো রুটিন মেনে চলেন?",
-  "আপনার দৈনন্দিন রুটিন সম্পর্কে আমাকে বলুন।",
-  "আপনার বাবা-মা কি আপনাকে সময়মতো পড়াশোনা করার ব্যাপারে নির্দেশনা দেন?",
-  "আপনি কি আপনার প্রাইভেট শিক্ষককে পছন্দ করেন?",
-  "এখন স্কুলের কোন বিষয়টি আপনি সবচেয়ে উপভোগ করছ?",
-  "সম্প্রতি কোন কাজের জন্য আপনি গর্ববোধ করেন?",
-  "স্কুলের বাইরে আপনি কী করতে পছন্দ করেন?",
-  "কোন বিষয়টি সবচেয়ে কঠিন লাগে, এবং কেন?",
-  "কিছু বুঝতে না পারলে আপনি সাধারণত কী করেন?",
-  "পড়াশোনার বাইরে আপনি কোন কাজগুলো উপভোগ করো?",
-  "আপনার শেখার জন্য কোন পদ্ধতি সবচেয়ে ভালো — পড়া, অনুশীলন, নাকি কারও ব্যাখ্যা?",
-  "কোন সমস্যা হলে আপনি সাধারণত কার সাথে কথা বলেন?",
-  "পরীক্ষা বা অ্যাসাইনমেন্টের জন্য আপনি সাধারণত কীভাবে প্রস্তুতি নেন?",
-  "আপনার মতে আপনার সবচেয়ে বড় দক্ষতা কী?",
-  "এমন কোনো খেলা আছে কি যা আপনি খেলতে পছন্দ করেন?",
-  "পড়াশোনার পাশাপাশি আপনি কী করতে পছন্দ করেন?",
-  "আজ আপনাকে আর কোনোভাবে সাহায্য করতে পারি?",
+// Verbatim Bangla study-habit items from the owner's doc. Kept as DATA (not schema
+// columns) so items can be added/edited/reordered without a migration. Each carries
+// a `type`:
+//   - "yes_no"    → rendered with an optional Yes/No + a comment field
+//   - "open_text" → rendered as a free-text input (these questions are open-ended,
+//                   so a Yes/No would be meaningless); the answer is stored in the
+//                   item's comment field with answer = null
+//   - "guidance"  → an INSTRUCTION to the mentor, not a question: rendered as text
+//                   in the section, never answered/stored
+export type StudyHabitType = "yes_no" | "open_text" | "guidance";
+export const STUDY_HABIT_ITEMS: { text: string; type: StudyHabitType }[] = [
+  { text: "কেউ যদি সামান্য কোনো বিষয় নিয়েও উচ্ছ্বাস প্রকাশ করে, তবে তার প্রশংসা করুন।", type: "guidance" },
+  { text: "আপনি কি সকালে পড়াশোনা করেন?", type: "yes_no" },
+  { text: "আপনি প্রতিদিন কখন পড়াশোনা শেষ করেন?", type: "open_text" },
+  { text: "আপনি প্রতিদিন কতক্ষণ পড়াশোনা করেন?", type: "open_text" },
+  { text: "আপনি কি কোনো রুটিন মেনে চলেন?", type: "yes_no" },
+  { text: "আপনার দৈনন্দিন রুটিন সম্পর্কে আমাকে বলুন।", type: "open_text" },
+  { text: "আপনার বাবা-মা কি আপনাকে সময়মতো পড়াশোনা করার ব্যাপারে নির্দেশনা দেন?", type: "yes_no" },
+  { text: "আপনি কি আপনার প্রাইভেট শিক্ষককে পছন্দ করেন?", type: "yes_no" },
+  { text: "এখন স্কুলের কোন বিষয়টি আপনি সবচেয়ে উপভোগ করছ?", type: "open_text" },
+  { text: "সম্প্রতি কোন কাজের জন্য আপনি গর্ববোধ করেন?", type: "open_text" },
+  { text: "স্কুলের বাইরে আপনি কী করতে পছন্দ করেন?", type: "open_text" },
+  { text: "কোন বিষয়টি সবচেয়ে কঠিন লাগে, এবং কেন?", type: "open_text" },
+  { text: "কিছু বুঝতে না পারলে আপনি সাধারণত কী করেন?", type: "open_text" },
+  { text: "পড়াশোনার বাইরে আপনি কোন কাজগুলো উপভোগ করো?", type: "open_text" },
+  { text: "আপনার শেখার জন্য কোন পদ্ধতি সবচেয়ে ভালো — পড়া, অনুশীলন, নাকি কারও ব্যাখ্যা?", type: "open_text" },
+  { text: "কোন সমস্যা হলে আপনি সাধারণত কার সাথে কথা বলেন?", type: "open_text" },
+  { text: "পরীক্ষা বা অ্যাসাইনমেন্টের জন্য আপনি সাধারণত কীভাবে প্রস্তুতি নেন?", type: "open_text" },
+  { text: "আপনার মতে আপনার সবচেয়ে বড় দক্ষতা কী?", type: "open_text" },
+  { text: "এমন কোনো খেলা আছে কি যা আপনি খেলতে পছন্দ করেন?", type: "yes_no" },
+  { text: "পড়াশোনার পাশাপাশি আপনি কী করতে পছন্দ করেন?", type: "open_text" },
+  { text: "আজ আপনাকে আর কোনোভাবে সাহায্য করতে পারি?", type: "open_text" },
 ];
 
 // Fixed per-subject progress-note subjects from the owner's doc.
@@ -53,8 +59,9 @@ export const PROGRESS_GRADE_BANDS: Record<z.infer<typeof progressGrade>, string>
 
 const studyHabitAnswer = z.object({
   question: z.string().trim().max(500),
-  answer: z.enum(["yes", "no"]).nullish(),
-  comment: z.string().trim().max(2000).optional(),
+  type: z.enum(["yes_no", "open_text"]).optional(), // guidance items are never stored
+  answer: z.enum(["yes", "no"]).nullish(), // only for yes_no; open_text keeps this null
+  comment: z.string().trim().max(2000).optional(), // yes_no note OR the open_text response
 });
 const subjectNote = z.object({
   subject: z.string().trim().max(80),
