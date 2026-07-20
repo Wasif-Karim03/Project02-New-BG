@@ -75,6 +75,7 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
             </label>
             <label className="flex items-center gap-2 text-sm text-ink-2"><input type="checkbox" name="isOrphan" defaultChecked={!!d.isOrphan} className="h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" /> অনাথ / Orphan</label>
             <T name="ethnicity" label="নৃগোষ্ঠী / Ethnicity" defaultValue={v("ethnicity")} />
+            <T name="dob" label="জন্ম তারিখ / Date of birth" type="date" defaultValue={d.dob ? new Date(d.dob as string).toISOString().slice(0, 10) : ""} />
           </div>
         </section>
 

@@ -3,9 +3,11 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { portraitVisible } from "@/lib/public/consent";
 import { getStudentRecord } from "@/lib/services/student-record";
-import { deleteStudentAction, setFlagsAction, updateRecordAction, upsertSessionAction } from "../actions";
+import { deleteStudentAction, setFlagsAction, updateRecordAction } from "../actions";
 import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, btnDanger, input, label } from "../../_components/ui";
 import { ConfirmSubmit } from "../../_components/ConfirmSubmit";
+import { EducationManager } from "./_components/EducationManager";
+import Link from "next/link";
 
 const usd = (m: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(m / 100);
 type SearchParams = Promise<{ ok?: string; error?: string }>;
@@ -48,6 +50,7 @@ export default async function RosterEditPage({ params, searchParams }: { params:
             <input type="hidden" name="showPhoto" value={(!portraitVisible(s)).toString()} />
             <button title="Consent to display this student's photo publicly (minors' images). Off = only the initial shows." className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${portraitVisible(s) ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{portraitVisible(s) ? "📷 photo shown ✓" : "📷 photo hidden"}</button>
           </form>
+          <Link href={`/roster/${s.id}/print`} target="_blank" className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200" title="Open a printable / downloadable single-student view">🖨 Print / PDF</Link>
         </div>
       </PageHeader>
 
@@ -66,6 +69,7 @@ export default async function RosterEditPage({ params, searchParams }: { params:
             <label className={label}>Father name<input name="fatherName" defaultValue={s.fatherName ?? ""} className={input} /></label>
             <label className={label}>Mother name<input name="motherName" defaultValue={s.motherName ?? ""} className={input} /></label>
             <label className={label}>Gender<input name="gender" defaultValue={s.gender ?? ""} className={input} /></label>
+            <label className={label}>Date of birth<input name="dob" type="date" defaultValue={s.dob ? new Date(s.dob).toISOString().slice(0, 10) : ""} className={input} /></label>
             <label className={label}>School
               <select name="schoolId" defaultValue={s.schoolId ?? ""} className={input}>
                 <option value="">— none —</option>
@@ -73,6 +77,7 @@ export default async function RosterEditPage({ params, searchParams }: { params:
               </select>
             </label>
             <label className={`sm:col-span-2 ${label}`}>Bio<textarea name="bio" defaultValue={s.bio ?? ""} rows={3} className={input} /></label>
+            <label className={`sm:col-span-2 ${label}`}>Selection note <span className="font-normal text-slate-400">(admin-only — why the selection team picked this student)</span><textarea name="selectionNote" defaultValue={s.selectionNote ?? ""} rows={3} className={input} /></label>
           </div>
         </Card>
 
@@ -99,9 +104,16 @@ export default async function RosterEditPage({ params, searchParams }: { params:
           <div className="grid gap-3 sm:grid-cols-2">
             <label className={label}>District<input name="addrDistrict" defaultValue={s.addrDistrict ?? ""} className={input} /></label>
             <label className={label}>Career goal<input name="careerGoal" defaultValue={s.careerGoal ?? ""} className={input} /></label>
+            <label className={label}>Ethnicity<input name="ethnicity" defaultValue={s.ethnicity ?? ""} className={input} /></label>
+            <label className={label}>Orphan
+              <select name="isOrphan" defaultValue={s.isOrphan ? "true" : "false"} className={input}><option value="false">No</option><option value="true">Yes</option></select>
+            </label>
             <label className={label}>Father profession<input name="fatherProfession" defaultValue={s.fatherProfession ?? ""} className={input} /></label>
+            <label className={label}>Father phone<input name="fatherPhone" defaultValue={s.fatherPhone ?? ""} className={input} /></label>
             <label className={label}>Mother profession<input name="motherProfession" defaultValue={s.motherProfession ?? ""} className={input} /></label>
+            <label className={label}>Mother phone<input name="motherPhone" defaultValue={s.motherPhone ?? ""} className={input} /></label>
             <label className={label}>Family income<input name="familyIncome" defaultValue={s.familyIncome ?? ""} className={input} /></label>
+            <label className={label}>Income source<input name="incomeSource" defaultValue={s.incomeSource ?? ""} className={input} /></label>
             <label className={label}>Guardian name<input name="guardianName" defaultValue={s.guardianName ?? ""} className={input} /></label>
             <label className={label}>Guardian mobile<input name="guardianMobile" defaultValue={s.guardianMobile ?? ""} className={input} /></label>
             <label className={label}>Guardian address<input name="guardianAddress" defaultValue={s.guardianAddress ?? ""} className={input} /></label>
@@ -112,36 +124,35 @@ export default async function RosterEditPage({ params, searchParams }: { params:
         </Card>
       </form>
 
-      {/* Education table */}
+      {/* Education (per session) — each row individually editable + deletable */}
       <Card className="mt-6 p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Education (per session)</h2>
-        {s.sessions.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="py-2">Session</th><th className="py-2">Institution</th><th className="py-2">Grade</th><th className="py-2">Roll</th><th className="py-2">Former</th><th className="py-2">Total</th>
-              </tr>
-            </thead>
-            <tbody>{s.sessions.map((e) => <tr key={e.id} className="border-b border-slate-100"><td className="py-2">{e.session.label}</td><td className="py-2">{e.institutionName ?? "—"}</td><td className="py-2">{e.grade ?? "—"}</td><td className="py-2">{e.roll ?? "—"}</td><td className="py-2">{e.formerRoll ?? "—"}</td><td className="py-2">{e.totalStudent ?? "—"}</td></tr>)}</tbody>
-          </table>
+        <EducationManager
+          studentId={s.id}
+          sessions={s.sessions.map((e) => ({ sessionId: e.sessionId, sessionLabel: e.session.label, institutionName: e.institutionName, grade: e.grade, roll: e.roll, formerRoll: e.formerRoll, totalStudent: e.totalStudent, degreeLevel: e.degreeLevel, resultSheetUrl: e.resultSheetUrl }))}
+          options={sessions.map((a) => ({ id: a.id, label: a.label }))}
+        />
+      </Card>
+
+      {/* Assigned mentor(s) */}
+      <Card className="mt-6 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Mentor{s.assignments.length === 1 ? "" : "s"} ({s.assignments.length})</h2>
+        {s.assignments.length === 0 ? <EmptyState>No mentor assigned.</EmptyState> : (
+          <table className="w-full text-sm"><tbody>{s.assignments.map((a) => (
+            <tr key={a.id} className="border-b border-slate-100">
+              <td className="py-2">{a.mentor.user.name ?? a.mentor.user.email ?? "—"}</td>
+              <td className="py-2 font-mono text-xs text-slate-500">{a.mentor.id}</td>
+              <td className="py-2">assigned {new Date(a.assignedAt).toLocaleDateString()}</td>
+            </tr>
+          ))}</tbody></table>
         )}
-        <form action={upsertSessionAction} className="mt-4 grid gap-3 sm:grid-cols-3">
-          <input type="hidden" name="studentId" value={s.id} />
-          <label className={label}>Session<select name="sessionId" required className={input}><option value="">—</option>{sessions.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
-          <label className={label}>Institution<input name="institutionName" className={input} /></label>
-          <label className={label}>Grade<input name="grade" className={input} /></label>
-          <label className={label}>Roll<input name="roll" className={input} /></label>
-          <label className={label}>Former roll<input name="formerRoll" className={input} /></label>
-          <label className={label}>Total students<input name="totalStudent" className={input} /></label>
-          <div className="sm:col-span-3"><button className={btnPrimary}>Add / update session</button></div>
-        </form>
       </Card>
 
       {/* Donors (admin sees real names) */}
       <Card className="mt-6 p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Donors ({s.donations.length})</h2>
         {s.donations.length === 0 ? <EmptyState>No donations directed to this student.</EmptyState> : (
-          <table className="w-full text-sm"><tbody>{s.donations.map((d, i) => <tr key={i} className="border-b border-slate-100"><td className="py-2">{d.donor.name}{d.donor.isAnonymous ? " (anon)" : ""}</td><td className="py-2">{usd(d.amount - d.refundedAmount)}</td><td className="py-2">{new Date(d.occurredAt).toLocaleDateString()}</td><td className="py-2">{d.isRecurring ? "recurring" : ""}</td></tr>)}</tbody></table>
+          <table className="w-full text-sm"><tbody>{s.donations.map((d, i) => <tr key={i} className="border-b border-slate-100"><td className="py-2">{d.donor.name}{d.donor.isAnonymous ? " (anon)" : ""}</td><td className="py-2 font-mono text-xs text-slate-500">{d.donor.id}</td><td className="py-2">{usd(d.amount - d.refundedAmount)}</td><td className="py-2">{new Date(d.occurredAt).toLocaleDateString()}</td><td className="py-2">{d.isRecurring ? "recurring" : ""}</td></tr>)}</tbody></table>
         )}
       </Card>
 
