@@ -30,6 +30,11 @@ export const applicationDraftSchema = z.object({
   // agreements + files
   agreedTerms: z.boolean().optional(),
   photoConsent: z.boolean().optional(),
+  consentVerificationCalls: z.boolean().optional(),
+  consentMonthlyPayment: z.boolean().optional(),
+  consentMentorCheckins: z.boolean().optional(),
+  consentCancelPolicy: z.boolean().optional(),
+  specialReason: z.string().trim().max(1000).optional(),
   resultSheetUrl: s, photoUrl: s,
 });
 
@@ -41,6 +46,15 @@ export type ApplicationDraftInput = z.infer<typeof applicationDraftSchema>;
 export const REQUIRED_TO_SUBMIT = [
   "nameEn", "fatherNameEn", "motherNameEn", "familyMobile", "gender",
   "schoolName", "currentClass", "addrDistrict", "photoUrl", "resultSheetUrl",
+] as const;
+
+// Consent checkboxes that must EACH be ticked to submit (recorded discretely).
+// Enforced at the submit gate — same MissingFieldsError pattern as the uploads,
+// NOT a draft-schema refine, so progressive saves still work (Phase 2 precedent).
+export const REQUIRED_CONSENTS = [
+  "agreedTerms", "photoConsent",
+  "consentVerificationCalls", "consentMonthlyPayment",
+  "consentMentorCheckins", "consentCancelPolicy",
 ] as const;
 
 // Orphan applicants must name a local guardian (name + phone). Enforced at SUBMIT
