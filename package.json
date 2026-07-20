@@ -13,6 +13,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset",
+    "verify:applications": "tsx scripts/verify-applications.ts",
     "verify:auth": "tsx scripts/verify-auth.ts",
     "verify:approvals": "tsx scripts/verify-approvals.ts",
     "verify:mentor": "tsx scripts/verify-mentor-access.ts",

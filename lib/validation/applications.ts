@@ -20,7 +20,7 @@ export const applicationDraftSchema = z.object({
   // গ. Family & social
   addrVillage: s, addrPara: s, addrPostOffice: s, addrThana: s, addrDistrict: s,
   localGuardianName: s, localGuardianPhone: s, tutorName: s, tutorPhone: s,
-  familyMembersMale: i, familyMembersFemale: i, studyingChildren: s,
+  familyMembersMale: i, familyMembersFemale: i, familyMembersTotal: i, studyingChildren: s,
   monthlyFamilyIncome: s, fatherProfession: s, fatherIncome: s, motherProfession: s, motherIncome: s,
   localKnownName: s, localKnownPhone: s,
   // agreements + files
