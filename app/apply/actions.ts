@@ -7,7 +7,7 @@ import { verifyCredentials } from "@/lib/auth/credentials";
 import { EmailInUseError } from "@/lib/services/accounts";
 import { CodeInvalidError, MissingFieldsError, registerStudentApplicant, saveDraft, submitApplication, verifyEmail } from "@/lib/services/applications";
 import { UploadRejectedError, saveUpload } from "@/lib/storage";
-import { applicationDraftSchema } from "@/lib/validation/applications";
+import { draftFromForm } from "@/lib/apply/draft-from-form";
 
 async function uploadIfPresent(v: FormDataEntryValue | null): Promise<string | undefined> {
   if (v instanceof File && v.size > 0) {
@@ -41,17 +41,6 @@ export async function loginContinueAction(formData: FormData) {
   if (!user) redirect("/apply?error=" + encodeURIComponent("Email or password is incorrect"));
   await setApplicantCookie(user.id);
   redirect("/apply/form");
-}
-
-function draftFromForm(formData: FormData) {
-  const obj: Record<string, unknown> = {};
-  for (const [k, v] of formData.entries()) {
-    if (typeof v === "string" && v.trim() !== "") obj[k] = v;
-  }
-  obj.isOrphan = formData.get("isOrphan") === "on";
-  obj.agreedTerms = formData.get("agreedTerms") === "on";
-  obj.photoConsent = formData.get("photoConsent") === "on";
-  return applicationDraftSchema.parse(obj);
 }
 
 export async function saveSubmitAction(formData: FormData) {

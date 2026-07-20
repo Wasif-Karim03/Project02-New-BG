@@ -11,6 +11,7 @@ import { PrismaClient } from "@prisma/client";
 import { isSignInAllowed } from "@/lib/auth/signin-policy";
 import { CodeInvalidError, MissingFieldsError, registerStudentApplicant, saveDraft, submitApplication, verifyEmail } from "@/lib/services/applications";
 import { ReasonRequiredError, approveApplication, listPendingApplications, rejectApplication } from "@/lib/services/application-review";
+import { draftFromForm } from "@/lib/apply/draft-from-form";
 
 const prisma = new PrismaClient();
 const T = Date.now();
@@ -41,6 +42,52 @@ async function main() {
   userIds.push(reg.userId);
   check("account STUDENT/PENDING + DRAFT application", reg.status === "DRAFT");
   check("PENDING applicant cannot get a session yet", isSignInAllowed("PENDING") === false);
+
+  console.log("\nPhase 1 — optional fields round-trip (scalars, repeatable Json groups, conditional scholarship)");
+  const regF = await registerStudentApplicant({ email: `applicant-fields-${T}@x.test`, password: "applicant-password-1", name: "Fields Test" });
+  userIds.push(regF.userId);
+  // Build the exact FormData the form submits and run it through the real mapper.
+  const fd = new FormData();
+  fd.set("nameEn", "TESTER");
+  fd.set("favoriteSubjectMarks", "92");
+  fd.set("familyMembersTotal", "6");
+  fd.set("studyingChildren", "3 (classes 4, 7, 9)");
+  fd.set("localKnownName", "Imam Sahib");
+  fd.set("localKnownPhone", "018xxxxxxxx");
+  fd.set("otherResults.0.subject", "Physics"); fd.set("otherResults.0.grade", "A");
+  fd.set("otherResults.1.subject", "Chemistry"); fd.set("otherResults.1.grade", "A-");
+  fd.set("otherResults.2.subject", ""); fd.set("otherResults.2.grade", ""); // fully-empty row → dropped
+  fd.set("govtExamGrades.0.subject", "Bangla"); fd.set("govtExamGrades.0.grade", "A+");
+  fd.set("existingScholarshipHas", "yes");
+  fd.set("existingScholarship.org", "Local Trust"); fd.set("existingScholarship.amount", "500"); fd.set("existingScholarship.type", "monthly");
+  fd.append("scholarshipNeedFor", "fees"); fd.append("scholarshipNeedFor", "materials");
+  fd.set("scholarshipNeedForOther", "Transport to school");
+  const draft = draftFromForm(fd);
+  check("mapper: familyMembersTotal coerced to Int", draft.familyMembersTotal === 6);
+  check("mapper: fully-empty repeatable row dropped", Array.isArray(draft.otherResults) && draft.otherResults!.length === 2);
+  check("mapper: otherResults round-trips {subject,grade}", draft.otherResults?.[0]?.subject === "Physics" && draft.otherResults?.[1]?.grade === "A-");
+  check("mapper: govtExamGrades round-trips", draft.govtExamGrades?.[0]?.subject === "Bangla" && draft.govtExamGrades?.[0]?.grade === "A+");
+  check("mapper: existingScholarship object built on Yes", draft.existingScholarship?.org === "Local Trust" && draft.existingScholarship?.type === "monthly");
+  check("mapper: scholarshipNeedFor = options + free-text", JSON.stringify(draft.scholarshipNeedFor) === JSON.stringify(["fees", "materials", "Transport to school"]));
+  // Conditional: identical sub-fields but answer = No → object omitted entirely.
+  const fdNo = new FormData();
+  fdNo.set("existingScholarshipHas", "no");
+  fdNo.set("existingScholarship.org", "Should be ignored");
+  check("mapper: existingScholarship omitted when answer is No", draftFromForm(fdNo).existingScholarship === undefined);
+  // Persist via the service, then read straight back from the DB (Json columns).
+  await saveDraft(regF.userId, draft);
+  const persisted = await prisma.studentApplication.findFirst({ where: { userId: regF.userId } });
+  check("db: familyMembersTotal persisted", persisted?.familyMembersTotal === 6);
+  check("db: studyingChildren persisted", persisted?.studyingChildren === "3 (classes 4, 7, 9)");
+  check("db: local reference persisted", persisted?.localKnownName === "Imam Sahib" && persisted?.localKnownPhone === "018xxxxxxxx");
+  // Compare field-by-field: Prisma Json → Postgres jsonb, which normalizes object
+  // key order, so a raw JSON.stringify of an array-of-objects would spuriously differ.
+  const sameRows = (a: unknown, b: { subject: string; grade: string }[] | undefined) =>
+    Array.isArray(a) && Array.isArray(b) && a.length === b.length &&
+    a.every((r, i) => (r as { subject?: string }).subject === b[i].subject && (r as { grade?: string }).grade === b[i].grade);
+  check("db: otherResults stored as Json array", sameRows(persisted?.otherResults, draft.otherResults));
+  check("db: existingScholarship stored as Json object", (persisted?.existingScholarship as { type?: string } | null)?.type === "monthly");
+  check("db: scholarshipNeedFor stored as Json array", JSON.stringify(persisted?.scholarshipNeedFor) === JSON.stringify(draft.scholarshipNeedFor));
 
   console.log("\nSubmit is gated on required fields + agreement");
   await saveDraft(reg.userId, { nameEn: "RIMA", gender: "female" }); // partial

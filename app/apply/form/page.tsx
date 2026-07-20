@@ -2,6 +2,16 @@ import { redirect } from "next/navigation";
 import { getApplicantUserId } from "@/lib/apply-session";
 import { getOrCreateDraft } from "@/lib/services/applications";
 import { saveSubmitAction } from "../actions";
+import { RepeatableSubjectRows } from "./_components/RepeatableSubjectRows";
+import { ExistingScholarship } from "./_components/ExistingScholarship";
+
+// "Why the scholarship is needed" — checkbox options; anything else in the saved
+// array is the free-text "other" note.
+const NEED_OPTS: [string, string][] = [
+  ["fees", "পরীক্ষার ফি / Exam fees"],
+  ["tuition", "টিউশন / Tuition"],
+  ["materials", "বই ও উপকরণ / Books & materials"],
+];
 
 type SearchParams = Promise<{ error?: string }>;
 const f = "mt-1.5 w-full rounded-lg border border-hairline bg-white px-3 py-2.5 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40";
@@ -23,6 +33,12 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
   if (d.status === "EMAIL_VERIFIED" || d.status === "APPROVED") redirect("/apply/done");
   const { error } = await searchParams;
   const v = (k: string) => (d[k] as string) ?? "";
+  const rows = (k: string) => (Array.isArray(d[k]) ? (d[k] as { subject: string; grade: string }[]) : []);
+  const need = Array.isArray(d.scholarshipNeedFor) ? (d.scholarshipNeedFor as string[]) : [];
+  const needOther = need.find((x) => !NEED_OPTS.some(([opt]) => opt === x)) ?? "";
+  const existingScholarship = d.existingScholarship && typeof d.existingScholarship === "object"
+    ? (d.existingScholarship as { org?: string; amount?: string; type?: string })
+    : null;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-16">
@@ -61,12 +77,45 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
             <T name="roll" label="রোল / Roll" defaultValue={v("roll")} />
             <T name="totalStudents" label="মোট শিক্ষার্থী / Total students" defaultValue={v("totalStudents")} />
             <T name="favoriteSubject" label="প্রিয় বিষয় / Favorite subject" defaultValue={v("favoriteSubject")} />
+            <T name="favoriteSubjectMarks" label="প্রিয় বিষয়ে নম্বর / Favorite subject marks" defaultValue={v("favoriteSubjectMarks")} />
             <T name="mathMarks" label="গণিতে নম্বর / Math marks" defaultValue={v("mathMarks")} />
             <T name="englishMarks" label="ইংরেজিতে নম্বর / English marks" defaultValue={v("englishMarks")} />
             <T name="recentGovtExam" label="সাম্প্রতিক সরকারি পরীক্ষা / Recent govt exam" defaultValue={v("recentGovtExam")} />
             <T name="careerGoal" label="বড় হয়ে কী হতে চান / Career goal" defaultValue={v("careerGoal")} />
           </div>
           <label className={`${lbl} mt-4`}>শখ / Hobbies<textarea name="hobbies" rows={2} defaultValue={v("hobbies")} className={f} /></label>
+
+          <RepeatableSubjectRows
+            name="otherResults"
+            label="অন্যান্য বিষয়ের ফলাফল / Other subjects & results"
+            subjectLabel="বিষয় / Subject"
+            gradeLabel="নম্বর/গ্রেড / Mark or grade"
+            initial={rows("otherResults")}
+          />
+          <RepeatableSubjectRows
+            name="govtExamGrades"
+            label="যে বিষয়ে ভালো করেছে (সরকারি পরীক্ষা) / Subjects scored well in (govt exam)"
+            subjectLabel="বিষয় / Subject"
+            gradeLabel="গ্রেড/মোট / Grade or total"
+            initial={rows("govtExamGrades")}
+          />
+          <ExistingScholarship initial={existingScholarship} />
+        </section>
+
+        <section className="rounded-2xl border border-accent-2/40 bg-accent-2/5 p-6 shadow-sm">
+          <H>বৃত্তি কেন প্রয়োজন / Why the scholarship is needed</H>
+          <p className="mt-2 text-sm text-ink-2">প্রযোজ্য সবগুলো নির্বাচন করুন / Select all that apply — optional.</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {NEED_OPTS.map(([value, label]) => (
+              <label key={value} className="flex items-center gap-2 text-sm text-ink-2">
+                <input type="checkbox" name="scholarshipNeedFor" value={value} defaultChecked={need.includes(value)} className="h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
+                {label}
+              </label>
+            ))}
+          </div>
+          <label className={`${lbl} mt-4`}>অন্যান্য (বিস্তারিত) / Other (please describe)
+            <textarea name="scholarshipNeedForOther" rows={2} defaultValue={needOther} className={f} />
+          </label>
         </section>
 
         <section className="rounded-2xl border border-hairline bg-ground-2 p-6 shadow-sm">
@@ -83,11 +132,21 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
             <T name="tutorPhone" label="শিক্ষকের ফোন / Tutor phone" defaultValue={v("tutorPhone")} />
             <T name="familyMembersMale" label="পরিবারে পুরুষ / Male members" type="number" defaultValue={v("familyMembersMale")} />
             <T name="familyMembersFemale" label="পরিবারে নারী / Female members" type="number" defaultValue={v("familyMembersFemale")} />
+            <T name="familyMembersTotal" label="মোট সদস্য / Total members" type="number" defaultValue={v("familyMembersTotal")} />
+            <T name="studyingChildren" label="বর্তমানে অধ্যয়নরত সন্তান (কোন শ্রেণীতে) / Children studying now (which classes)" defaultValue={v("studyingChildren")} />
             <T name="monthlyFamilyIncome" label="মাসিক পারিবারিক আয় / Monthly income" defaultValue={v("monthlyFamilyIncome")} />
             <T name="fatherProfession" label="বাবার পেশা / Father's profession" defaultValue={v("fatherProfession")} />
             <T name="fatherIncome" label="বাবার আয় / Father's income" defaultValue={v("fatherIncome")} />
             <T name="motherProfession" label="মাতার পেশা / Mother's profession" defaultValue={v("motherProfession")} />
             <T name="motherIncome" label="মাতার আয় / Mother's income" defaultValue={v("motherIncome")} />
+          </div>
+          <div className="mt-4">
+            <p className="text-sm font-medium text-ink-2">স্থানীয় পরিচিত (আত্মীয় নন) / Local reference (not a relative)</p>
+            <p className="mt-1 text-xs text-ink-2">যাচাইয়ের জন্য — একজন শিক্ষক, ইমাম বা প্রতিবেশী হলেই চলবে (কাছের আত্মীয় নয়)।</p>
+            <div className="mt-2 grid gap-4 sm:grid-cols-2">
+              <T name="localKnownName" label="নাম / Name" defaultValue={v("localKnownName")} />
+              <T name="localKnownPhone" label="ফোন / Phone" defaultValue={v("localKnownPhone")} />
+            </div>
           </div>
         </section>
 
