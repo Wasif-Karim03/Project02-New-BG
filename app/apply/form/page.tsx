@@ -195,6 +195,11 @@ export default async function ApplyFormPage({ searchParams }: { searchParams: Se
                 <span>{text} *</span>
               </label>
             ))}
+            {/* Story consent is OPTIONAL (no asterisk, not required) — a family may decline. */}
+            <label className="flex items-start gap-3 rounded-xl border border-hairline bg-ground-3/50 p-4 text-sm text-ink-2">
+              <input type="checkbox" name="storyConsent" defaultChecked={!!d.storyConsent} className="mt-0.5 h-4 w-4 rounded border-hairline text-accent-2 focus:ring-accent/40" />
+              <span>আমি সম্মতি দিচ্ছি যে নির্বাচিত হলে আমার গল্প/পটভূমি আমার স্পনসরশিপ পেজে প্রকাশ করা যেতে পারে। (ঐচ্ছিক) / I consent to my story / background being shared publicly on my sponsorship page if I&apos;m selected. (optional)</span>
+            </label>
           </div>
           <label className={`${lbl} mt-4`}>বৃত্তির জন্য বিশেষ কারণ (ঐচ্ছিক) / Special reason for needing the scholarship (optional)
             <textarea name="specialReason" rows={3} defaultValue={v("specialReason")} className={f} />

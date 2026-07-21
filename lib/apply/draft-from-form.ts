@@ -38,6 +38,7 @@ export function draftFromForm(formData: FormData) {
   obj.isOrphan = formData.get("isOrphan") === "on";
   obj.agreedTerms = formData.get("agreedTerms") === "on";
   obj.photoConsent = formData.get("photoConsent") === "on";
+  obj.storyConsent = formData.get("storyConsent") === "on";
   obj.consentVerificationCalls = formData.get("consentVerificationCalls") === "on";
   obj.consentMonthlyPayment = formData.get("consentMonthlyPayment") === "on";
   obj.consentMentorCheckins = formData.get("consentMentorCheckins") === "on";
