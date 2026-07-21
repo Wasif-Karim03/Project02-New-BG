@@ -91,11 +91,15 @@ export async function approveApplication(adminUserId: string, applicationId: str
       active: true, // (re-)approval brings the student onto the public site
       // Application → student field mapping lives in ONE place (the mapper).
       ...mapApplicationToStudent(app, firstName),
-      // Publish the photo ONLY if the applicant consented to public display (the
-      // required "photoConsent" checkbox, recorded on the application). The image
-      // is served watermarked; admin can still toggle visibility per-student.
+      // Publish the photo / story ONLY where the applicant consented (the required
+      // "photoConsent" and optional "storyConsent" checkboxes on the application).
+      // Each gates its own field independently in the projection; the WEBSITE scope is
+      // granted if EITHER is given, so a family that consents to the story but declines
+      // the photo still shows the story (and vice-versa). Images are watermarked; admin
+      // can still toggle visibility per-student.
       portraitConsent: app.photoConsent ? ("GRANTED" as const) : ("PENDING" as const),
-      consentScopes: app.photoConsent ? (["WEBSITE"] as ConsentScope[]) : ([] as ConsentScope[]),
+      storyConsent: app.storyConsent ? ("GRANTED" as const) : ("PENDING" as const),
+      consentScopes: app.photoConsent || app.storyConsent ? (["WEBSITE"] as ConsentScope[]) : ([] as ConsentScope[]),
       consentRevokedAt: null,
       reviewedById: adminUserId,
       reviewedAt: new Date(),

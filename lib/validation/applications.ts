@@ -31,6 +31,8 @@ export const applicationDraftSchema = z.object({
   // agreements + files
   agreedTerms: z.boolean().optional(),
   photoConsent: z.boolean().optional(),
+  // Optional — a family may decline; deliberately NOT in REQUIRED_CONSENTS.
+  storyConsent: z.boolean().optional(),
   consentVerificationCalls: z.boolean().optional(),
   consentMonthlyPayment: z.boolean().optional(),
   consentMentorCheckins: z.boolean().optional(),

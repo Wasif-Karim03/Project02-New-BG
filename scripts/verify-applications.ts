@@ -14,6 +14,7 @@ import { ReasonRequiredError, approveApplication, listPendingApplications, rejec
 import { draftFromForm } from "@/lib/apply/draft-from-form";
 import { REQUIRED_CONSENTS } from "@/lib/validation/applications";
 import { mapApplicationToStudent } from "@/lib/mappers/application-to-student";
+import { portraitVisible, storyVisible } from "@/lib/public/consent";
 
 const prisma = new PrismaClient();
 const T = Date.now();
@@ -27,10 +28,10 @@ async function expectThrow(label: string, ErrType: new (...a: never[]) => Error,
 const REQUIRED = { nameEn: "RIMA AKTER", fatherNameEn: "Karim", motherNameEn: "Fatima", familyMobile: "017xxxxxxxx", gender: "female" as const, schoolName: "Rangamati Govt School", currentClass: "8", addrDistrict: "Rangamati", photoUrl: "/api/files/applications/test-photo.jpg", resultSheetUrl: "/api/files/applications/test-result.pdf", agreedTerms: true, photoConsent: true, consentVerificationCalls: true, consentMonthlyPayment: true, consentMentorCheckins: true, consentCancelPolicy: true };
 const admin = async () => (await prisma.user.findUniqueOrThrow({ where: { email: "admin@bridginggenerations.org" } })).id;
 
-async function applyAndVerify(tag: string) {
+async function applyAndVerify(tag: string, extra: Record<string, unknown> = {}) {
   const reg = await registerStudentApplicant({ email: `applicant-${tag}-${T}@x.test`, password: "applicant-password-1", name: "Rima Akter" });
   userIds.push(reg.userId);
-  await saveDraft(reg.userId, REQUIRED);
+  await saveDraft(reg.userId, { ...REQUIRED, ...extra });
   const { devCode } = await submitApplication(reg.userId);
   await verifyEmail(reg.userId, devCode!);
   return reg;
@@ -224,6 +225,21 @@ async function main() {
   check("application APPROVED + linked to student", (await prisma.studentApplication.findUnique({ where: { id: verified!.id } }))?.status === "APPROVED");
   check("account ACTIVE → can now sign in", (await prisma.user.findUnique({ where: { id: reg.userId } }))?.status === "ACTIVE" && isSignInAllowed("ACTIVE") === true);
   check("approval is audited", !!(await prisma.auditLog.findFirst({ where: { action: "application.approve", entityId: verified!.id } })));
+  // Story consent is OPTIONAL and was NOT ticked here → story gate stays closed, while
+  // the required photo consent opens the portrait gate (each field gated independently).
+  check("no story consent → Student.storyConsent PENDING", student?.storyConsent === "PENDING");
+  check("photo consent → portraitConsent GRANTED + WEBSITE scope", student?.portraitConsent === "GRANTED" && !!student?.consentScopes.includes("WEBSITE"));
+  check("story gate closed, portrait gate open", !!student && storyVisible(student) === false && portraitVisible(student) === true);
+
+  console.log("\nStory consent (optional) flows application → approval → GRANTED");
+  const regStory = await applyAndVerify("story", { storyConsent: true });
+  const appStory = await prisma.studentApplication.findFirst({ where: { userId: regStory.userId, status: "EMAIL_VERIFIED" } });
+  check("application captured storyConsent = true", appStory?.storyConsent === true);
+  const approvedStory = await approveApplication(adminId, appStory!.id);
+  studentIds.push(approvedStory.studentId);
+  const studentStory = await prisma.student.findUnique({ where: { id: approvedStory.studentId } });
+  check("approval sets Student.storyConsent GRANTED (mirrors photoConsent → portraitConsent)", studentStory?.storyConsent === "GRANTED");
+  check("WEBSITE scope present → story gate now open", !!studentStory && studentStory.consentScopes.includes("WEBSITE") && storyVisible(studentStory) === true);
 
   console.log("\nRejection requires a reason");
   const reg2 = await applyAndVerify("rej");
