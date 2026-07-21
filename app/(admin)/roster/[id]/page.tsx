@@ -208,12 +208,13 @@ export default async function RosterEditPage({ params, searchParams }: { params:
             <input type="hidden" name="studentId" value={s.id} />
             <label className={label}>Label<input name="label" defaultValue={`${thisYear} monthly award`} className={input} /></label>
             <label className={label}>Months<input name="count" type="number" min={1} max={24} defaultValue={12} className={input} /></label>
-            <label className={label}>Yearly total (USD)<input name="totalAmount" type="number" step="0.01" defaultValue={dollars(s.requireAmount)} className={input} /></label>
             <label className={label}>Per installment (USD)<input name="perInstallment" type="number" step="0.01" defaultValue={dollars(s.perInstallment)} className={input} /></label>
+            <label className={label}>Yearly total (USD)<input name="totalAmount" type="number" step="0.01" defaultValue={s.perInstallment ? dollars(s.perInstallment * 12) : dollars(s.requireAmount)} className={input} /></label>
             <label className={label}>Start year<input name="startYear" type="number" min={2000} max={2100} defaultValue={thisYear} className={input} /></label>
             <label className={label}>Start month
               <select name="startMonth" defaultValue={1} className={input}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select>
             </label>
+            <p className="sm:col-span-2 text-xs text-slate-500">Yearly total must equal per-installment × months (each month is the same amount).</p>
             <div className="sm:col-span-2"><button className={btnPrimary}>Create installment series</button></div>
           </form>
         )}

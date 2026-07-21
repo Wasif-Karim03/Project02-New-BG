@@ -9,6 +9,9 @@ export class NotFoundError extends Error {
 export class SeriesExistsError extends Error {
   constructor() { super("An installment series with that label already exists for this student."); this.name = "SeriesExistsError"; }
 }
+export class SeriesAmountMismatchError extends Error {
+  constructor() { super("Yearly total must equal per-installment × months."); this.name = "SeriesAmountMismatchError"; }
+}
 
 // Progress derived from the installment rows — "N of 12 paid, next due <month>".
 export type SeriesProgress = {
@@ -62,6 +65,9 @@ function buildInstallments(input: CreateSeriesInput): { index: number; dueMonth:
  * per (student, label): a duplicate label is rejected (SeriesExistsError). Audited.
  */
 export async function createInstallmentSeries(adminUserId: string | null, studentId: string, input: CreateSeriesInput) {
+  // Invariant (also enforced at the validation boundary): the yearly total is the sum
+  // of the equal monthly installments, so progress amounts can never be misleading.
+  if (input.totalAmount !== input.perInstallment * input.count) throw new SeriesAmountMismatchError();
   const series = await prisma.$transaction(async (tx) => {
     const dup = await tx.installmentSeries.findUnique({ where: { studentId_label: { studentId, label: input.label } }, select: { id: true } });
     if (dup) throw new SeriesExistsError();

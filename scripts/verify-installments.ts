@@ -17,7 +17,8 @@
  * Run after the seed:  npx tsx scripts/verify-installments.ts
  */
 import { PrismaClient } from "@prisma/client";
-import { SeriesExistsError, createInstallmentSeries, getStudentSeriesWithProgress, markInstallmentPaid } from "@/lib/services/installments";
+import { SeriesAmountMismatchError, SeriesExistsError, createInstallmentSeries, getStudentSeriesWithProgress, markInstallmentPaid } from "@/lib/services/installments";
+import { createSeriesSchema } from "@/lib/validation/installments";
 
 const prisma = new PrismaClient();
 // Per-RUN unique token (time + pid + random) so concurrent runs never collide on a
@@ -86,6 +87,19 @@ async function main() {
   try { await createInstallmentSeries(null, student.id, { label: `${T} award`, count: 12, totalAmount: 120000, perInstallment: 10000, startYear: 2026, startMonth: 11 }); }
   catch (e) { dupRejected = e instanceof SeriesExistsError; }
   check("duplicate series label rejected (SeriesExistsError)", dupRejected);
+
+  console.log("\nYearly total must equal per-installment × months (no misleading progress)");
+  // The form boundary (schema) rejects 12 × $500 with a $5000 total.
+  const badParse = createSeriesSchema.safeParse({ label: "x", count: 12, perInstallment: 50000, totalAmount: 500000, startYear: 2026, startMonth: 1 });
+  check("schema rejects total ≠ per × months (12×$500 with $5000 total)", !badParse.success);
+  // A consistent one parses fine (12 × $500 = $6000 total).
+  const goodParse = createSeriesSchema.safeParse({ label: "x", count: 12, perInstallment: 50000, totalAmount: 600000, startYear: 2026, startMonth: 1 });
+  check("schema accepts a consistent total (12×$500 = $6000)", goodParse.success);
+  // The service guard also rejects a direct mismatched call.
+  let mismatchRejected = false;
+  try { await createInstallmentSeries(null, student.id, { label: `${T} mismatch`, count: 12, perInstallment: 50000, totalAmount: 500000, startYear: 2026, startMonth: 1 }); }
+  catch (e) { mismatchRejected = e instanceof SeriesAmountMismatchError; }
+  check("service rejects mismatched total (SeriesAmountMismatchError)", mismatchRejected);
 
   console.log(`\n${failures === 0 ? "✓ ALL INSTALLMENT CHECKS PASSED" : `✗ ${failures} CHECK(S) FAILED`}`);
 }
