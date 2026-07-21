@@ -7,7 +7,7 @@ import {
   RegistrationIdTakenError, deactivateAllStudents, deleteStudentSession, setStudentFlags, updateStudentRecord, upsertStudentSession,
 } from "@/lib/services/student-record";
 import { NotFoundError as StudentNotFoundError, deleteStudentCompletely } from "@/lib/services/deletion";
-import { SeriesExistsError, createInstallmentSeries, markInstallmentPaid } from "@/lib/services/installments";
+import { SeriesAmountMismatchError, SeriesExistsError, createInstallmentSeries, markInstallmentPaid } from "@/lib/services/installments";
 import { studentRecordSchema, studentSessionSchema } from "@/lib/validation/student-record";
 import { createSeriesSchema, markInstallmentSchema } from "@/lib/validation/installments";
 import { UploadRejectedError, saveUpload } from "@/lib/storage";
@@ -148,7 +148,7 @@ export async function createSeriesAction(formData: FormData) {
   try {
     await createInstallmentSeries(admin.id, id, parsed.data);
   } catch (e) {
-    if (e instanceof SeriesExistsError) redirect(`/roster/${id}?error=${encodeURIComponent(e.message)}`);
+    if (e instanceof SeriesExistsError || e instanceof SeriesAmountMismatchError) redirect(`/roster/${id}?error=${encodeURIComponent(e.message)}`);
     throw e;
   }
   redirect(`/roster/${id}?ok=1`);
