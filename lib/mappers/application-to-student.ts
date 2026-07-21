@@ -7,6 +7,17 @@ export function firstNameFrom(nameEn: string | null, fallback: string): string {
 }
 
 /**
+ * The application's "why the scholarship is needed" answer (a Json string[] of picked
+ * options + an optional free-text note) becomes the Student's free-text `purpose` —
+ * previously `purpose` had no application source. Non-array / empty → null.
+ */
+export function formatScholarshipNeedFor(v: unknown): string | null {
+  if (!Array.isArray(v)) return null;
+  const parts = v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((x) => x.trim());
+  return parts.length ? parts.join(", ") : null;
+}
+
+/**
  * THE single source of truth for application → student field mapping.
  *
  * The admin student record uses different field names than the application
@@ -25,6 +36,10 @@ export function mapApplicationToStudent(app: StudentApplication, firstName: stri
     fullName: app.nameEn,
     fatherName: app.fatherNameEn,
     motherName: app.motherNameEn,
+    // Bangla name variants — carried for official documents (Bangla-first org).
+    fullNameBn: app.nameBn,
+    fatherNameBn: app.fatherNameBn,
+    motherNameBn: app.motherNameBn,
     dob: app.dob,
     gender: app.gender,
     community: app.ethnicity,
@@ -33,12 +48,21 @@ export function mapApplicationToStudent(app: StudentApplication, firstName: stri
     fatherProfession: app.fatherProfession,
     motherProfession: app.motherProfession,
     familyIncome: app.monthlyFamilyIncome,
+    // Primary family contact — required on the application; carried so an admin always
+    // has a way to reach the family (the guardian phone is separate + optional).
+    familyMobile: app.familyMobile,
     addrVillage: app.addrVillage,
+    // Detailed address parts — carried for mentor home visits / correspondence.
+    addrPara: app.addrPara,
+    addrPostOffice: app.addrPostOffice,
+    addrThana: app.addrThana,
     addrDistrict: app.addrDistrict,
     guardianName: app.localGuardianName,
     guardianMobile: app.localGuardianPhone,
     tutorName: app.tutorName,
     tutorPhone: app.tutorPhone,
+    // Why the scholarship is needed → the record's free-text purpose (had no source before).
+    purpose: formatScholarshipNeedFor(app.scholarshipNeedFor),
     careerGoal: app.careerGoal,
     portraitUrl: app.photoUrl,
   };

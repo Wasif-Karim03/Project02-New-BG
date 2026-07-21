@@ -241,6 +241,21 @@ async function main() {
   check("approval sets Student.storyConsent GRANTED (mirrors photoConsent → portraitConsent)", studentStory?.storyConsent === "GRANTED");
   check("WEBSITE scope present → story gate now open", !!studentStory && studentStory.consentScopes.includes("WEBSITE") && storyVisible(studentStory) === true);
 
+  console.log("\nCarried application fields survive approval → record (Bangla names, family mobile, address, purpose)");
+  const regCarry = await applyAndVerify("carry", {
+    nameBn: "রিমা আক্তার", fatherNameBn: "করিম", motherNameBn: "ফাতিমা",
+    addrPara: "Uttorpara", addrPostOffice: "Rangamati Sadar", addrThana: "Kotwali",
+    scholarshipNeedFor: ["fees", "materials", "Transport to school"],
+  });
+  const appCarry = await prisma.studentApplication.findFirst({ where: { userId: regCarry.userId, status: "EMAIL_VERIFIED" } });
+  const approvedCarry = await approveApplication(adminId, appCarry!.id);
+  studentIds.push(approvedCarry.studentId);
+  const rec = await prisma.student.findUnique({ where: { id: approvedCarry.studentId } });
+  check("familyMobile carried (required primary contact — no longer dropped)", rec?.familyMobile === "017xxxxxxxx", `got ${rec?.familyMobile ?? "null"}`);
+  check("Bangla name variants carried", rec?.fullNameBn === "রিমা আক্তার" && rec?.fatherNameBn === "করিম" && rec?.motherNameBn === "ফাতিমা");
+  check("detailed address parts carried (para / post office / thana)", rec?.addrPara === "Uttorpara" && rec?.addrPostOffice === "Rangamati Sadar" && rec?.addrThana === "Kotwali");
+  check("scholarshipNeedFor → purpose (Json formatted into the string)", rec?.purpose === "fees, materials, Transport to school", `got ${rec?.purpose ?? "null"}`);
+
   console.log("\nRejection requires a reason");
   const reg2 = await applyAndVerify("rej");
   const app2 = await prisma.studentApplication.findFirst({ where: { userId: reg2.userId } });

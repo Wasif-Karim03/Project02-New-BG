@@ -71,6 +71,9 @@ export default async function RosterEditPage({ params, searchParams }: { params:
             <label className={label}>Full name<input name="fullName" defaultValue={s.fullName ?? ""} className={input} /></label>
             <label className={label}>Father name<input name="fatherName" defaultValue={s.fatherName ?? ""} className={input} /></label>
             <label className={label}>Mother name<input name="motherName" defaultValue={s.motherName ?? ""} className={input} /></label>
+            <label className={label}>Full name (Bangla)<input name="fullNameBn" defaultValue={s.fullNameBn ?? ""} className={input} /></label>
+            <label className={label}>Father name (Bangla)<input name="fatherNameBn" defaultValue={s.fatherNameBn ?? ""} className={input} /></label>
+            <label className={label}>Mother name (Bangla)<input name="motherNameBn" defaultValue={s.motherNameBn ?? ""} className={input} /></label>
             <label className={label}>Gender<input name="gender" defaultValue={s.gender ?? ""} className={input} /></label>
             <label className={label}>Date of birth<input name="dob" type="date" defaultValue={s.dob ? new Date(s.dob).toISOString().slice(0, 10) : ""} className={input} /></label>
             <label className={label}>School
@@ -105,8 +108,13 @@ export default async function RosterEditPage({ params, searchParams }: { params:
         <Card className="mt-6 p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Family + contact</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className={label}>District<input name="addrDistrict" defaultValue={s.addrDistrict ?? ""} className={input} /></label>
+            <label className={label}>Family mobile <span className="font-normal text-slate-400">(primary contact)</span><input name="familyMobile" defaultValue={s.familyMobile ?? ""} className={input} /></label>
             <label className={label}>Career goal<input name="careerGoal" defaultValue={s.careerGoal ?? ""} className={input} /></label>
+            <label className={label}>Village<input name="addrVillage" defaultValue={s.addrVillage ?? ""} className={input} /></label>
+            <label className={label}>Para<input name="addrPara" defaultValue={s.addrPara ?? ""} className={input} /></label>
+            <label className={label}>Post office<input name="addrPostOffice" defaultValue={s.addrPostOffice ?? ""} className={input} /></label>
+            <label className={label}>Thana<input name="addrThana" defaultValue={s.addrThana ?? ""} className={input} /></label>
+            <label className={label}>District<input name="addrDistrict" defaultValue={s.addrDistrict ?? ""} className={input} /></label>
             <label className={label}>Ethnicity<input name="ethnicity" defaultValue={s.ethnicity ?? ""} className={input} /></label>
             <label className={label}>Orphan
               <select name="isOrphan" defaultValue={s.isOrphan ? "true" : "false"} className={input}><option value="false">No</option><option value="true">Yes</option></select>
