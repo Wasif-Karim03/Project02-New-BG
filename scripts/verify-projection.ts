@@ -85,6 +85,9 @@ async function statsConsistent(): Promise<{ ok: boolean; detail: string }> {
     if (stats.donorCount === donors.length && stats.totalRaised === expectTotal && stats.studentCount === visible.length && stats.schoolCount === expectSchools) {
       return { ok: true, detail };
     }
+    // Space out retries so a transient burst of concurrent writes clears before the
+    // next attempt (avoids the inverse risk: rapid back-to-back reads all catching skew).
+    await new Promise((r) => setTimeout(r, 40 * (attempt + 1)));
   }
   return { ok: false, detail: `disagreed across 6 attempts — ${detail}` };
 }
