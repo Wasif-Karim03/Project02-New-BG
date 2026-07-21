@@ -129,8 +129,12 @@ export async function setStudentFlags(
  * Year-end deactivation. Sets active=false on every currently-active student.
  * Because the public projection now requires active=true, deactivated students
  * immediately drop off the public marketing site until they re-enroll for the new
- * session. Audited. This is a MANUAL admin action — there is no cron/scheduler;
- * an admin runs it from Settings or the Roster at year end.
+ * session. Audited. Triggered two ways, both routed through this one service:
+ * automatically by the 30 December year-end cron (app/api/cron/year-end), and
+ * manually by an admin from Settings/Roster (the fallback). Idempotent — a second
+ * run finds no active students and deactivates 0, so it never double-applies.
+ * Deactivation ONLY: it never deletes and never re-activates (re-enrolling for the
+ * new session is always a manual admin action).
  */
 export async function deactivateAllStudents(adminUserId: string | null): Promise<number> {
   const res = await prisma.student.updateMany({ where: { active: true }, data: { active: false } });
