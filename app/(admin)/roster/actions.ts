@@ -7,7 +7,9 @@ import {
   RegistrationIdTakenError, deactivateAllStudents, deleteStudentSession, setStudentFlags, updateStudentRecord, upsertStudentSession,
 } from "@/lib/services/student-record";
 import { NotFoundError as StudentNotFoundError, deleteStudentCompletely } from "@/lib/services/deletion";
+import { SeriesExistsError, createInstallmentSeries, markInstallmentPaid } from "@/lib/services/installments";
 import { studentRecordSchema, studentSessionSchema } from "@/lib/validation/student-record";
+import { createSeriesSchema, markInstallmentSchema } from "@/lib/validation/installments";
 import { UploadRejectedError, saveUpload } from "@/lib/storage";
 
 async function uploadIfPresent(v: FormDataEntryValue | null): Promise<string | undefined> {
@@ -128,6 +130,42 @@ export async function deactivateAllAction() {
   const admin = await requireAdmin();
   await deactivateAllStudents(admin.id);
   revalidatePath("/roster");
+}
+
+/** Create a linked monthly installment series (yearly award paid monthly). */
+export async function createSeriesAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = String(formData.get("studentId"));
+  const parsed = createSeriesSchema.safeParse({
+    label: str(formData.get("label")),
+    count: formData.get("count"),
+    totalAmount: dollarsToCents(formData.get("totalAmount")),
+    perInstallment: dollarsToCents(formData.get("perInstallment")),
+    startYear: formData.get("startYear"),
+    startMonth: formData.get("startMonth"),
+  });
+  if (!parsed.success) redirect(`/roster/${id}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid installment series")}`);
+  try {
+    await createInstallmentSeries(admin.id, id, parsed.data);
+  } catch (e) {
+    if (e instanceof SeriesExistsError) redirect(`/roster/${id}?error=${encodeURIComponent(e.message)}`);
+    throw e;
+  }
+  redirect(`/roster/${id}?ok=1`);
+}
+
+/** Mark one monthly installment paid (with an optional bKash/Nagad/Rocket txn ref). Idempotent. */
+export async function markInstallmentPaidAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = String(formData.get("studentId"));
+  const installmentId = String(formData.get("installmentId"));
+  const parsed = markInstallmentSchema.safeParse({
+    txnRef: str(formData.get("txnRef")),
+    method: str(formData.get("method")),
+  });
+  if (!parsed.success) redirect(`/roster/${id}?error=${encodeURIComponent("Invalid installment input")}`);
+  await markInstallmentPaid(admin.id, installmentId, parsed.data);
+  revalidatePath(`/roster/${id}`);
 }
 
 /**

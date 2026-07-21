@@ -478,6 +478,7 @@ model Student {
   donations     Donation[]
   subscriptions Subscription[]
   applications  StudentApplication[]
+  installmentSeries InstallmentSeries[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -610,6 +611,7 @@ model AcademicSession {
   evaluations       StudentEvaluation[]
   mentorEvaluations MentorEvaluation[]
   donations         Donation[]
+  installmentSeries InstallmentSeries[]
   // NOTE: no `subscriptions` back-relation. A recurring Subscription is a
   // donor-scoped, ongoing commitment that spans terms; per-cycle attribution to
   // a session lives on each Donation.sessionId, not on the Subscription.
@@ -867,6 +869,10 @@ model Donation {
   corrections    Donation[] @relation("Corrections")
 
   receipt Receipt?
+  // Optional back-link: an installment (in a monthly award series) MAY reference the
+  // real Donation that settled it. Additive overlay — a Donation is never required
+  // to have an installment, and this never affects money aggregation.
+  installment Installment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -976,4 +982,66 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actorUserId])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// INSTALLMENT SERIES (Phase 7) — a yearly scholarship award paid in monthly
+// installments via the LIVE mobile-banking path (bKash/Nagad/Rocket), NOT Stripe.
+// This is an ADDITIVE tracking layer ON TOP of the frozen money model: it never
+// mints or mutates Donation rows and never participates in money aggregation.
+// Marking an installment paid records the fact (a timestamp + optional txn ref)
+// and MAY reference the real Donation that settled it. Progress ("N of 12 paid,
+// next due <month>") is derived by reading the installment rows.
+// ---------------------------------------------------------------------------
+
+model InstallmentSeries {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Optional tie to the academic year this award covers (informational).
+  sessionId String?
+  session   AcademicSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  // Human label for the award year, e.g. "2026 monthly award". One per student.
+  label          String
+  totalAmount    Int    // yearly award total, MINOR UNITS (USD v1)
+  perInstallment Int    // default amount per monthly installment, MINOR UNITS
+  currency       String @default("USD")
+
+  installments Installment[]
+
+  createdById String? // admin User.id who created the series
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([studentId, label]) // idempotent create: one series per student per label
+  @@index([studentId])
+}
+
+model Installment {
+  id       String            @id @default(cuid())
+  seriesId String
+  series   InstallmentSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  index    Int    // 1-based position within the series (1..N)
+  dueMonth String // "YYYY-MM" — the month this installment is due (for "next due")
+  amount   Int    // MINOR UNITS (USD v1); usually the series perInstallment
+
+  // Paid state: paidAt null = outstanding. Idempotent — marking an already-paid
+  // installment keeps the original paidAt and never double-applies (no money moves).
+  paidAt DateTime?
+  txnRef String? // OPTIONAL bKash/Nagad/Rocket transaction id, per installment
+  method String? // optional channel: "bkash" | "nagad" | "rocket" | ...
+
+  // OPTIONAL link to the real Donation that settled this installment.
+  donationId String?   @unique
+  donation   Donation? @relation(fields: [donationId], references: [id], onDelete: SetNull)
+
+  markedById String? // admin User.id who marked it paid
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([seriesId, index]) // one row per position; safe re-marking
+  @@index([seriesId])
 }

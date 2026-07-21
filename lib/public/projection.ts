@@ -12,7 +12,12 @@ import { portraitVisible, storyVisible } from "@/lib/public/consent";
 
 export const STUDENT_KEYS = ["id", "slug", "firstName", "schoolName", "grade", "sponsorshipStatus", "portraitUrl", "quote", "bio",
   // Sponsorship "ask" — intentionally public (the funding model). Photo/story stay consent-gated.
-  "registrationId", "purpose", "requireAmount", "fundedAmount", "perInstallment", "currency", "isOrphan", "ethnicity", "district"] as const;
+  "registrationId", "purpose", "requireAmount", "fundedAmount", "perInstallment", "currency", "district"] as const;
+// The per-student "donate" page adds ONLY these three to the list shape: the school
+// (session institution), career goal, and the public donor list. Everything else about
+// a minor (full name, guardian, gender, village, orphan status, ethnicity, professions,
+// DOB, roll, class size, target period) is deliberately absent — see PublicStudentDetail.
+export const STUDENT_DETAIL_KEYS = [...STUDENT_KEYS, "school", "careerGoal", "donors"] as const;
 export const PROJECT_KEYS = ["title", "slug", "summary", "status", "displayOrder", "fundingGoal", "fundingRaised", "currency"] as const;
 export const STATS_KEYS = ["studentCount", "schoolCount", "donorCount", "totalRaised", "currency"] as const;
 export const DONORWALL_KEYS = ["id", "displayName", "message", "tier", "year", "avatarUrl"] as const;
@@ -28,26 +33,18 @@ export type PublicStudent = {
   fundedAmount: number; // real raised toward this student, minor units
   perInstallment: number | null; // minor units
   currency: string;
-  isOrphan: boolean;
-  ethnicity: string | null;
   district: string | null;
 };
-// Full public student profile (the per-student "donate" page). Family/guardian
-// details are the sponsorship ask (matching the sector). Photo/story stay consent-gated.
+// Full public student profile (the per-student "donate" page). Phase 7 tightened this
+// to a strict allow-list: about a minor, ONLY first name, photo (consent-gated), school,
+// grade, district, and the "why they need support" note (purpose) are personal fields —
+// plus the funding "ask", the consent-gated story, career goal, and the public donor
+// list. A minor's full name, guardian name, gender, village, orphan status, ethnicity,
+// parents' professions, DOB, roll, class size, and target period NEVER cross the
+// boundary. STUDENT_DETAIL_KEYS is the single source of truth the snapshot test asserts.
 export type PublicStudentDetail = PublicStudent & {
-  fullName: string | null;
-  gender: string | null;
   school: string | null;
-  roll: string | null;
-  totalStudents: string | null;
-  fatherProfession: string | null;
-  motherProfession: string | null;
-  guardianName: string | null;
-  // guardianAddress and familyIncome are minors' PII — intentionally NOT projected
-  // to the public API (they never cross the boundary).
   careerGoal: string | null;
-  targetPeriod: string | null;
-  village: string | null;
   donors: { name: string; amount: number; year: number }[];
 };
 
@@ -122,7 +119,7 @@ const studentSelect = {
   id: true, slug: true, firstName: true, portraitUrl: true, quote: true, bio: true,
   portraitConsent: true, storyConsent: true, consentScopes: true, consentRevokedAt: true,
   registrationId: true, purpose: true, requireAmount: true, perInstallment: true,
-  isOrphan: true, ethnicity: true, addrDistrict: true,
+  addrDistrict: true,
   school: { select: { name: true } },
 } as const;
 
@@ -131,7 +128,7 @@ type StudentRow = {
   portraitConsent: import("@prisma/client").ConsentStatus; storyConsent: import("@prisma/client").ConsentStatus;
   consentScopes: import("@prisma/client").ConsentScope[]; consentRevokedAt: Date | null; school: { name: string } | null;
   registrationId: string | null; purpose: string | null; requireAmount: number | null; perInstallment: number | null;
-  isOrphan: boolean; ethnicity: string | null; addrDistrict: string | null;
+  addrDistrict: string | null;
 };
 
 function toPublicStudent(s: StudentRow, grade: string | null, sponsored: Set<string>, fundedAmount: number): PublicStudent {
@@ -148,8 +145,6 @@ function toPublicStudent(s: StudentRow, grade: string | null, sponsored: Set<str
     fundedAmount,
     perInstallment: s.perInstallment,
     currency: "USD",
-    isOrphan: s.isOrphan,
-    ethnicity: s.ethnicity,
     district: s.addrDistrict,
   };
   if (portraitVisible(s) && s.portraitUrl) out.portraitUrl = s.portraitUrl; // portrait gate
@@ -200,16 +195,14 @@ export async function projectStudentDetail(slug: string): Promise<PublicStudentD
     where: { slug, status: "ACTIVE", active: true, showOnWebsite: true },
     select: {
       ...studentSelect,
-      fullName: true, gender: true, fatherProfession: true, motherProfession: true,
-      addrVillage: true, guardianName: true,
-      careerGoal: true, targetPeriod: true,
+      careerGoal: true,
     },
   });
   if (!s) return null;
   const sid = await currentSessionId();
   const [session, sponsored, raised, donations] = await Promise.all([
     sid
-      ? prisma.studentSession.findFirst({ where: { sessionId: sid, studentId: s.id }, select: { grade: true, institutionName: true, formerRoll: true, totalStudent: true } })
+      ? prisma.studentSession.findFirst({ where: { sessionId: sid, studentId: s.id }, select: { grade: true, institutionName: true } })
       : Promise.resolve(null),
     sponsoredStudentIds(sid),
     studentRaisedMap(),
@@ -222,17 +215,8 @@ export async function projectStudentDetail(slug: string): Promise<PublicStudentD
   const base = toPublicStudent(s as StudentRow, session?.grade ?? null, sponsored, raised.get(s.id) ?? 0);
   return {
     ...base,
-    fullName: s.fullName,
-    gender: s.gender,
     school: session?.institutionName ?? s.school?.name ?? null,
-    roll: session?.formerRoll ?? null,
-    totalStudents: session?.totalStudent ?? null,
-    fatherProfession: s.fatherProfession,
-    motherProfession: s.motherProfession,
-    guardianName: s.guardianName,
     careerGoal: s.careerGoal,
-    targetPeriod: s.targetPeriod,
-    village: s.addrVillage,
     donors: donations.map((d) => ({
       name: d.donor.isAnonymous ? "Anonymous" : d.donor.name,
       amount: d.amount - d.refundedAmount,
