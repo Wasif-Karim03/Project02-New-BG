@@ -409,6 +409,10 @@ model Student {
   fullName   String?
   fatherName String?
   motherName String?
+  // Bangla name variants — carried from the application (Bangla-first org / official docs).
+  fullNameBn   String?
+  fatherNameBn String?
+  motherNameBn String?
   dob        DateTime?
   community  String?
   gender     String?
@@ -439,7 +443,14 @@ model Student {
   fatherProfession String?
   motherProfession String?
   familyIncome     String?
+  // Primary family contact — required on the application; carried so an admin always
+  // has a way to reach the family (distinct from the optional guardian phone).
+  familyMobile     String?
   addrVillage      String?
+  // Detailed address parts — carried from the application (mentors do home visits).
+  addrPara         String?
+  addrPostOffice   String?
+  addrThana        String?
   addrDistrict     String?
   guardianName     String?
   guardianMobile   String?

@@ -10,6 +10,10 @@ export const studentRecordSchema = z.object({
   fullName: t,
   fatherName: t,
   motherName: t,
+  // Bangla name variants (carried from the application).
+  fullNameBn: t,
+  fatherNameBn: t,
+  motherNameBn: t,
   gender: z.string().trim().max(40).optional(),
   // null clears the school link; a cuid links to a School; omitted = unchanged.
   // (The action maps an empty <select> value to null.)
@@ -28,6 +32,11 @@ export const studentRecordSchema = z.object({
   familyIncome: t,
   incomeSource: t,
   selectionNote: z.string().trim().max(2000).optional(),
+  familyMobile: t,
+  addrVillage: t,
+  addrPara: t,
+  addrPostOffice: t,
+  addrThana: t,
   addrDistrict: t,
   guardianName: t,
   guardianMobile: t,

@@ -41,6 +41,14 @@ const SECRET_FPROF = `SECRETFPROF${T}`;
 const SECRET_MPROF = `SECRETMPROF${T}`;
 const SECRET_GUARDIAN = `SECRETGUARDIAN${T}`;
 const SECRET_INCOME = `SECRETINCOME${T}`;
+// Fields carried onto the record in the Phase 7 follow-up — all admin-only, must NOT leak.
+const SECRET_FAMMOBILE = `SECRETFAMMOBILE${T}`;
+const SECRET_FULLBN = `SECRETFULLBN${T}`;
+const SECRET_FATHERBN = `SECRETFATHERBN${T}`;
+const SECRET_MOTHERBN = `SECRETMOTHERBN${T}`;
+const SECRET_PARA = `SECRETPARA${T}`;
+const SECRET_POSTOFFICE = `SECRETPOSTOFFICE${T}`;
+const SECRET_THANA = `SECRETTHANA${T}`;
 const SECRET_ANON = `SECRETANON${T}`;
 const DOB = new Date("2010-05-05");
 
@@ -102,6 +110,9 @@ async function mkStudent(opts: { first: string; slug: string; status?: "ACTIVE" 
       // Phase 7 removed fields — all populated so omission is actually tested:
       ethnicity: SECRET_ETH, isOrphan: true, addrVillage: SECRET_VILLAGE, fatherProfession: SECRET_FPROF,
       motherProfession: SECRET_MPROF, guardianName: SECRET_GUARDIAN, guardianMobile: "01700000000", familyIncome: SECRET_INCOME,
+      // Phase 7 follow-up carried fields — admin-only, must never cross the boundary:
+      familyMobile: SECRET_FAMMOBILE, fullNameBn: SECRET_FULLBN, fatherNameBn: SECRET_FATHERBN, motherNameBn: SECRET_MOTHERBN,
+      addrPara: SECRET_PARA, addrPostOffice: SECRET_POSTOFFICE, addrThana: SECRET_THANA,
       // Kept-public fields:
       addrDistrict: "Rangamati", purpose: "school fees", careerGoal: "doctor",
       portraitUrl: `/img/${opts.slug}.jpg`, quote: `quote-${opts.slug}`, bio: `bio-${opts.slug}`,
@@ -190,6 +201,10 @@ async function main() {
   check("mother's profession never serialized", !blob.includes(SECRET_MPROF));
   check("guardian name never serialized", !blob.includes(SECRET_GUARDIAN));
   check("family income never serialized", !blob.includes(SECRET_INCOME));
+  // Phase 7 follow-up carried fields — confirm the newly-added record columns never leak.
+  check("family mobile never serialized", !blob.includes(SECRET_FAMMOBILE));
+  check("Bangla names never serialized", !blob.includes(SECRET_FULLBN) && !blob.includes(SECRET_FATHERBN) && !blob.includes(SECRET_MOTHERBN));
+  check("address para/post-office/thana never serialized", !blob.includes(SECRET_PARA) && !blob.includes(SECRET_POSTOFFICE) && !blob.includes(SECRET_THANA));
   check("anonymous donor's name never serialized", !blob.includes(SECRET_ANON));
 
   console.log("\nConsent gates");
