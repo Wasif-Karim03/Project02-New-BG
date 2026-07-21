@@ -216,6 +216,11 @@ async function main() {
   const student = await prisma.student.findUnique({ where: { id: approved.studentId } });
   check("approve → Student ACTIVE + slug + verified", student?.status === "ACTIVE" && !!student?.slug && student?.verified === true);
   check("mapped fields (fatherName, district, career)", student?.fatherName === "Karim" && student?.addrDistrict === "Rangamati");
+  // The applicant's result sheet is required to submit — assert it SURVIVES approval
+  // onto the seeded StudentSession (was previously discarded at the mapper boundary).
+  const seededSession = await prisma.studentSession.findFirst({ where: { studentId: approved.studentId } });
+  check("seeded StudentSession carries school + grade from the application", seededSession?.institutionName === "Rangamati Govt School" && seededSession?.grade === "8");
+  check("result sheet survives application → approval → record (StudentSession.resultSheetUrl)", seededSession?.resultSheetUrl === "/api/files/applications/test-result.pdf", `got ${seededSession?.resultSheetUrl ?? "null"}`);
   check("application APPROVED + linked to student", (await prisma.studentApplication.findUnique({ where: { id: verified!.id } }))?.status === "APPROVED");
   check("account ACTIVE → can now sign in", (await prisma.user.findUnique({ where: { id: reg.userId } }))?.status === "ACTIVE" && isSignInAllowed("ACTIVE") === true);
   check("approval is audited", !!(await prisma.auditLog.findFirst({ where: { action: "application.approve", entityId: verified!.id } })));
