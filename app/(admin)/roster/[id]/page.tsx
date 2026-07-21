@@ -3,8 +3,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { portraitVisible } from "@/lib/public/consent";
 import { getStudentRecord } from "@/lib/services/student-record";
-import { deleteStudentAction, setFlagsAction, updateRecordAction } from "../actions";
-import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, btnDanger, input, label } from "../../_components/ui";
+import { getStudentSeriesWithProgress } from "@/lib/services/installments";
+import { createSeriesAction, deleteStudentAction, markInstallmentPaidAction, setFlagsAction, updateRecordAction } from "../actions";
+import { page, PageHeader, Card, Badge, EmptyState, btnPrimary, btnSecondary, btnDanger, input, label } from "../../_components/ui";
 import { ConfirmSubmit } from "../../_components/ConfirmSubmit";
 import { EducationManager } from "./_components/EducationManager";
 import Link from "next/link";
@@ -17,13 +18,15 @@ export default async function RosterEditPage({ params, searchParams }: { params:
   if (!session?.user || session.user.role !== "ADMIN" || session.user.status !== "ACTIVE") redirect("/login?callbackUrl=/roster");
   const { id } = await params;
   const { ok, error } = await searchParams;
-  const [s, sessions, schools] = await Promise.all([
+  const [s, sessions, schools, seriesData] = await Promise.all([
     getStudentRecord(id),
     prisma.academicSession.findMany({ orderBy: { label: "desc" } }),
     prisma.school.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    getStudentSeriesWithProgress(id),
   ]);
   if (!s) notFound();
   const dollars = (m: number | null) => (m == null ? "" : (m / 100).toString());
+  const thisYear = new Date().getFullYear();
 
   return (
     <div className={page}>
@@ -153,6 +156,66 @@ export default async function RosterEditPage({ params, searchParams }: { params:
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Donors ({s.donations.length})</h2>
         {s.donations.length === 0 ? <EmptyState>No donations directed to this student.</EmptyState> : (
           <table className="w-full text-sm"><tbody>{s.donations.map((d, i) => <tr key={i} className="border-b border-slate-100"><td className="py-2">{d.donor.name}{d.donor.isAnonymous ? " (anon)" : ""}</td><td className="py-2 font-mono text-xs text-slate-500">{d.donor.id}</td><td className="py-2">{usd(d.amount - d.refundedAmount)}</td><td className="py-2">{new Date(d.occurredAt).toLocaleDateString()}</td><td className="py-2">{d.isRecurring ? "recurring" : ""}</td></tr>)}</tbody></table>
+        )}
+      </Card>
+
+      {/* Installment series — yearly award paid monthly via bKash/Nagad/Rocket (Phase 7) */}
+      <Card className="mt-6 p-4">
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">Monthly installment series</h2>
+        <p className="mb-3 max-w-2xl text-xs text-slate-500">
+          Tracks a yearly award paid monthly via the live mobile-banking path (bKash / Nagad / Rocket). Mark
+          each month paid as it arrives, with the transaction ID if you have it. This is a tracking layer — it
+          does not move money on its own.
+        </p>
+        {seriesData ? (
+          <>
+            <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+              <span className="font-semibold">{seriesData.series.label}</span> — {seriesData.progress.paid} of {seriesData.progress.total} paid ·{" "}
+              {usd(seriesData.progress.paidAmount)} of {usd(seriesData.progress.totalAmount)}
+              {seriesData.progress.complete ? " · complete ✓" : seriesData.progress.nextDueMonth ? ` · next due ${seriesData.progress.nextDueMonth}` : ""}
+            </div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400"><th className="py-1">#</th><th className="py-1">Due</th><th className="py-1">Amount</th><th className="py-1">Status</th><th className="py-1">Mark paid</th></tr></thead>
+              <tbody>
+                {seriesData.installments.map((inst) => (
+                  <tr key={inst.id} className="border-b border-slate-100 align-middle">
+                    <td className="py-2">{inst.index}</td>
+                    <td className="py-2 font-mono text-xs">{inst.dueMonth}</td>
+                    <td className="py-2">{usd(inst.amount)}</td>
+                    <td className="py-2">
+                      {inst.paidAt
+                        ? <span className="text-emerald-700">paid {new Date(inst.paidAt).toLocaleDateString()}{inst.txnRef ? ` · ${inst.txnRef}` : ""}</span>
+                        : <span className="text-slate-400">outstanding</span>}
+                    </td>
+                    <td className="py-2">
+                      {inst.paidAt ? <span className="text-xs text-slate-300">—</span> : (
+                        <form action={markInstallmentPaidAction} className="flex flex-wrap items-center gap-1.5">
+                          <input type="hidden" name="studentId" value={s.id} />
+                          <input type="hidden" name="installmentId" value={inst.id} />
+                          <input name="txnRef" placeholder="txn ref (optional)" className={`${input} h-8 w-40 py-1 text-xs`} />
+                          <select name="method" defaultValue="bkash" className={`${input} h-8 w-24 py-1 text-xs`}><option value="bkash">bKash</option><option value="nagad">Nagad</option><option value="rocket">Rocket</option><option value="bank">Bank</option><option value="cash">Cash</option><option value="other">Other</option></select>
+                          <button className={`${btnSecondary} h-8 px-2 py-1 text-xs`}>Mark paid</button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : (
+          <form action={createSeriesAction} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="studentId" value={s.id} />
+            <label className={label}>Label<input name="label" defaultValue={`${thisYear} monthly award`} className={input} /></label>
+            <label className={label}>Months<input name="count" type="number" min={1} max={24} defaultValue={12} className={input} /></label>
+            <label className={label}>Yearly total (USD)<input name="totalAmount" type="number" step="0.01" defaultValue={dollars(s.requireAmount)} className={input} /></label>
+            <label className={label}>Per installment (USD)<input name="perInstallment" type="number" step="0.01" defaultValue={dollars(s.perInstallment)} className={input} /></label>
+            <label className={label}>Start year<input name="startYear" type="number" min={2000} max={2100} defaultValue={thisYear} className={input} /></label>
+            <label className={label}>Start month
+              <select name="startMonth" defaultValue={1} className={input}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select>
+            </label>
+            <div className="sm:col-span-2"><button className={btnPrimary}>Create installment series</button></div>
+          </form>
         )}
       </Card>
 

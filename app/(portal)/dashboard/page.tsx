@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { listDonorGivingHistory, listDonorSubscriptions } from "@/lib/services/subscriptions";
+import { listDonorSeriesProgress } from "@/lib/services/installments";
 import { cancelSubscriptionAction } from "./actions";
 
 const usd = (minor: number, currency = "USD") =>
@@ -16,9 +17,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   if (session.user.role !== "DONOR") redirect("/");
   const { error } = await searchParams;
 
-  const [subs, history] = await Promise.all([
+  const [subs, history, seriesProgress] = await Promise.all([
     listDonorSubscriptions(session.user.id),
     listDonorGivingHistory(session.user.id),
+    listDonorSeriesProgress(session.user.id),
   ]);
 
   return (
@@ -50,6 +52,32 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </ul>
         )}
       </section>
+
+      {seriesProgress.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-black/50">Award progress</h2>
+          <p className="mt-0.5 text-xs text-black/40">Monthly installments paid toward each student&apos;s yearly award.</p>
+          <ul className="mt-3 divide-y divide-black/10 rounded-lg border border-black/10">
+            {seriesProgress.map((p) => (
+              <li key={p.studentId} className="p-4 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-semibold">{p.studentName}</span>
+                  <span className="text-xs text-black/50">
+                    {p.progress.paid} of {p.progress.total} paid
+                    {p.progress.complete ? " · complete ✓" : p.progress.nextDueMonth ? ` · next due ${p.progress.nextDueMonth}` : ""}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-black/60">
+                  <strong>{usd(p.progress.paidAmount, p.progress.currency)}</strong> of <strong>{usd(p.progress.totalAmount, p.progress.currency)}</strong>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+                  <div className="h-full rounded-full bg-emerald-500" style={{ width: `${p.progress.total > 0 ? Math.round((p.progress.paid / p.progress.total) * 100) : 0}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/50">Giving history</h2>
