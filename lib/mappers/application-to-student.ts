@@ -43,3 +43,20 @@ export function mapApplicationToStudent(app: StudentApplication, firstName: stri
     portraitUrl: app.photoUrl,
   };
 }
+
+/**
+ * Application → StudentSession field mapping (the per-session enrollment seeded at
+ * approval). The applicant's uploaded RESULT SHEET is a PER-SESSION academic document
+ * — Student has no `resultSheetUrl` column, StudentSession does (Phase 4) — so it is
+ * carried here onto the first session rather than discarded. The approval flow adds
+ * the contextual fields (studentId, sessionId, schoolId, status).
+ */
+export function mapApplicationToStudentSession(app: StudentApplication) {
+  return {
+    institutionName: app.schoolName,
+    grade: app.currentClass,
+    roll: app.roll,
+    totalStudent: app.totalStudents,
+    resultSheetUrl: app.resultSheetUrl,
+  };
+}

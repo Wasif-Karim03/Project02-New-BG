@@ -5,7 +5,7 @@ import { sendDecisionEmail } from "@/lib/services/account-emails";
 import { recordAudit } from "@/lib/services/audit";
 import { MARKETING_TAGS, revalidateMarketing } from "@/lib/services/revalidate-marketing";
 import { generateUniqueStudentSlug, slugify } from "@/lib/slug";
-import { firstNameFrom, mapApplicationToStudent } from "@/lib/mappers/application-to-student";
+import { firstNameFrom, mapApplicationToStudent, mapApplicationToStudentSession } from "@/lib/mappers/application-to-student";
 
 export class NotFoundError extends Error {
   constructor() { super("Application not found"); this.name = "NotFoundError"; }
@@ -106,9 +106,10 @@ export async function approveApplication(adminUserId: string, applicationId: str
       update: mapped,
     });
 
-    // Seed a per-session enrollment for the current academic session so the
-    // school + grade (free-text `currentClass`) surface on the portal / public
-    // page. Upsert keeps this idempotent if the student is re-approved.
+    // Seed a per-session enrollment for the current academic session so the school +
+    // grade (free-text `currentClass`) AND the applicant's result sheet surface on the
+    // portal / public page. Session-field mapping lives in the mapper (mirrors the
+    // Student mapping). Upsert keeps this idempotent if the student is re-approved.
     const currentSessionId = await getCurrentSessionId(tx);
     if (currentSessionId) {
       await tx.studentSession.upsert({
@@ -117,19 +118,13 @@ export async function approveApplication(adminUserId: string, applicationId: str
           studentId: student.id,
           sessionId: currentSessionId,
           schoolId,
-          institutionName: app.schoolName,
-          grade: app.currentClass,
-          roll: app.roll,
-          totalStudent: app.totalStudents,
           status: "ACTIVE",
+          ...mapApplicationToStudentSession(app),
         },
         update: {
           schoolId,
-          institutionName: app.schoolName,
-          grade: app.currentClass,
-          roll: app.roll,
-          totalStudent: app.totalStudents,
           status: "ACTIVE",
+          ...mapApplicationToStudentSession(app),
         },
       });
     }
