@@ -4,13 +4,21 @@ The Stripe integration is **fully built and verified** — it's dormant only bec
 API keys are set. Turning it on is configuration, not development. This guide is the
 exact checklist.
 
+> **Phase 8:** the **public donation page `/give`** now uses hosted Stripe Checkout for
+> **one-time** card gifts (card data never touches our servers). The old mobile-banking
+> "record my gift" claim form was removed from `/give`; offline gifts (bank / cash /
+> mobile banking) are now recorded by an **admin** via `/offline-donations`. Amount floor
+> is **$0.50** (Stripe's USD minimum), with a **$5,000** confirm step to catch typos and a
+> **$100,000** hard cap. Donor receipts come from **Stripe** (our sender domain isn't
+> verified); we still record a Receipt ledger row but do not double-email.
+
 ## What's already in place (no code to write)
 
 | Piece | Where |
 |---|---|
 | Stripe client | `lib/stripe.ts` (reads `STRIPE_SECRET_KEY`) |
-| One-time Checkout | `createCheckoutSession()` · `lib/services/checkout.ts`, page `/donate` |
-| **Monthly** Checkout | `createSubscriptionCheckout()` (mode=subscription) · `/donate` "monthly" checkbox |
+| One-time Checkout (public) | `createCheckoutSession()` · `lib/services/checkout.ts` · **public `/give`** (Phase 8) — amount / designation / tribute / note / anonymity travel in Checkout metadata |
+| **Monthly** Checkout | `createSubscriptionCheckout()` (mode=subscription) · `/donate` "monthly" checkbox. **NOT offered on the public `/give` flow — one-time only.** Scaffolding retained (see note below). |
 | Webhook endpoint | `POST /api/webhooks/stripe` → `lib/webhooks/stripe-handler.ts` |
 | Signature verification | `stripe.webhooks.constructEvent` with `STRIPE_WEBHOOK_SECRET` |
 | Idempotency | event-level (`StripeEvent.eventId`) **and** row-level (Donation `@unique`) |
@@ -76,8 +84,8 @@ stripe trigger customer.subscription.deleted
 - Swap `sk_test_`/`whsec_` for **live** values; point the webhook at the production URL.
 - The webhook endpoint must be **HTTPS**.
 - Confirm business/tax settings in Stripe for real 501(c)(3) receipts.
-- Keep the free flow (`/give`, `/pledges`) if you still want fee-free mobile-banking gifts
-  alongside cards — both write to the same ledger and totals.
+- Fee-free offline gifts (bank / cash / mobile banking) are recorded by an admin at
+  `/offline-donations` — they write to the same ledger and totals as card gifts.
 
 ## Money-integrity guarantees (already enforced)
 

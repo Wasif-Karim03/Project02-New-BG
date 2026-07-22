@@ -1,31 +1,25 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getSettings } from "@/lib/services/settings";
-import { submitClaimAction } from "../actions";
+import { LARGE_DONATION_THRESHOLD_CENTS } from "@/lib/validation/donations";
+import { startGiveCheckoutAction } from "../actions";
 import { recipientQuery, resolveRecipient } from "../recipient";
+import { ConfirmLargeGiftButton } from "../_components/ConfirmLargeGiftButton";
 
-type SearchParams = Promise<{ student?: string; project?: string; submitted?: string; error?: string }>;
+type SearchParams = Promise<{ student?: string; project?: string; error?: string; canceled?: string }>;
 const f = "mt-1 w-full rounded-lg border border-hairline bg-white px-3 py-2.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40";
 const lbl = "block text-xs font-medium text-ink-2";
 const usd = (m: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(m / 100);
 
 export default async function GiveCheckoutPage({ searchParams }: { searchParams: SearchParams }) {
-  const { student, project, submitted, error } = await searchParams;
+  const { student, project, error, canceled } = await searchParams;
   const recipient = await resolveRecipient({ student, project });
 
-  const [session, pay] = await Promise.all([auth(), getSettings(["pay_bkash", "pay_nagad", "pay_rocket", "pay_bank"])]);
-  // Prefill for a signed-in donor so their gift attributes to their account.
-  const me = session?.user?.role === "DONOR" ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true } }) : null;
+  const session = await auth();
+  // Prefill email for a signed-in donor so their gift attributes to their account.
+  const me = session?.user?.role === "DONOR" ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true } }) : null;
 
-  const CHANNELS = [
-    { label: "bKash", value: pay.pay_bkash || process.env.NEXT_PUBLIC_PAY_BKASH },
-    { label: "Nagad", value: pay.pay_nagad || process.env.NEXT_PUBLIC_PAY_NAGAD },
-    { label: "Rocket", value: pay.pay_rocket || process.env.NEXT_PUBLIC_PAY_ROCKET },
-    { label: "Bank transfer", value: pay.pay_bank || process.env.NEXT_PUBLIC_PAY_BANK },
-  ].filter((c) => c.value);
-
-  // Preserve the recipient across redirects (submit/error come back to this URL).
+  // Preserve the recipient across the redirect back from a validation error / cancel.
   const ctx = recipientQuery({ student, project }, recipient);
   const designationType = recipient.kind;
 
@@ -57,39 +51,48 @@ export default async function GiveCheckoutPage({ searchParams }: { searchParams:
         </div>
       ) : null}
 
-      {submitted && <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Thank you! Your gift is recorded and pending verification. We&apos;ll confirm and email your receipt shortly.</div>}
+      {canceled && <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Payment canceled — nothing was charged. You can try again below.</div>}
       {error && <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{decodeURIComponent(error)}</div>}
 
-      <section className="mt-6 rounded-lg border border-hairline bg-ground-2 p-4 text-sm">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-2">How to send your gift</h2>
-        {CHANNELS.length === 0 ? (
-          <p className="mt-2 text-ink-2">Payment details will appear here once the organization sets them.</p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-ink">{CHANNELS.map((c) => <li key={c.label}><strong>{c.label}:</strong> {c.value}</li>)}</ul>
-        )}
-        <p className="mt-2 text-xs text-ink-2">Card payments are coming soon. For now, send your gift via one of the channels above, then record it below so we can match and receipt it.</p>
-      </section>
-
-      <form action={submitClaimAction} className="mt-6 grid gap-3">
+      <form action={startGiveCheckoutAction} className="mt-6 grid gap-3">
         <input type="hidden" name="designationType" value={designationType} />
         {recipient.kind === "STUDENT" ? <input type="hidden" name="studentId" value={recipient.id} /> : null}
         {recipient.kind === "PROJECT" ? <input type="hidden" name="projectId" value={recipient.id} /> : null}
         <input type="hidden" name="returnTo" value={`/give/checkout${ctx}`} />
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-2">Tell us about your gift</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className={lbl}>Your name<input name="donorName" required defaultValue={me?.name ?? ""} className={f} /></label>
-          <label className={lbl}>Email (for your receipt)<input name="donorEmail" type="email" defaultValue={me?.email ?? ""} className={f} /></label>
-          <label className={lbl}>Amount (USD)<input name="amountDollars" type="number" min="1" step="0.01" required className={f} /></label>
-          <label className={lbl}>Sent via
-            <select name="method" required className={f} defaultValue="bkash">
-              <option value="bkash">bKash</option><option value="nagad">Nagad</option><option value="rocket">Rocket</option><option value="bank">Bank transfer</option><option value="cash">Cash</option><option value="other">Other</option>
-            </select>
-          </label>
-          <label className={`${lbl} sm:col-span-2`}>Transaction ID / reference<input name="reference" placeholder="e.g. bKash TrxID" className={f} /></label>
-        </div>
-        <label className={lbl}>Note (optional)<input name="note" className={f} /></label>
-        {me ? null : <label className="flex items-center gap-2 text-sm text-ink-2"><input type="checkbox" name="isAnonymous" /> List me anonymously (hide my name on the public wall)</label>}
-        <button type="submit" className="mt-1 rounded-full bg-accent-2 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-2-hover">Record my gift</button>
+
+        <label className={lbl}>Amount (USD)
+          <input name="amountDollars" type="number" min="0.50" step="0.01" required placeholder="50.00" className={f} />
+          <span className="mt-1 block text-[11px] text-ink-2">Minimum $0.50. You&apos;ll enter your card securely on the next page.</span>
+        </label>
+        <label className={lbl}>Email (optional — for your receipt)<input name="donorEmail" type="email" defaultValue={me?.email ?? ""} className={f} /></label>
+
+        {/* Optional tribute */}
+        <details className="rounded-lg border border-hairline bg-ground-2 p-3">
+          <summary className="cursor-pointer text-xs font-semibold text-ink-2">Dedicate this gift (optional)</summary>
+          <div className="mt-3 grid gap-3">
+            <label className={lbl}>In honor / in memory of
+              <select name="tributeType" defaultValue="" className={f}>
+                <option value="">— not a tribute —</option>
+                <option value="honor">In honor of</option>
+                <option value="memory">In memory of</option>
+              </select>
+            </label>
+            <label className={lbl}>Their name<input name="tributeName" maxLength={120} className={f} /></label>
+            <label className={lbl}>Message (optional)<input name="tributeMessage" maxLength={500} className={f} /></label>
+            <label className="flex items-center gap-2 text-sm text-ink-2"><input type="checkbox" name="tributePublic" /> Allow this tribute to appear publicly</label>
+          </div>
+        </details>
+
+        <label className={lbl}>Note to the team (optional)<input name="note" maxLength={500} className={f} /></label>
+        {me ? null : <label className="flex items-center gap-2 text-sm text-ink-2"><input type="checkbox" name="isAnonymous" /> List me anonymously (hide my name on the public donor wall)</label>}
+
+        <ConfirmLargeGiftButton
+          thresholdDollars={LARGE_DONATION_THRESHOLD_CENTS / 100}
+          className="mt-1 rounded-full bg-accent-2 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-2-hover"
+        >
+          Continue to secure payment →
+        </ConfirmLargeGiftButton>
+        <p className="text-center text-[11px] text-ink-2">Payments are processed securely by Stripe. Your card details never touch our servers.</p>
       </form>
 
       <p className="mt-6 text-center text-xs text-ink-2"><Link href="/give" className="underline underline-offset-2 hover:text-ink">← Back</Link></p>

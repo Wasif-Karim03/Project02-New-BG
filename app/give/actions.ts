@@ -1,67 +1,60 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { submitDonationClaim } from "@/lib/services/donation-claims";
-import { UploadRejectedError, saveUpload } from "@/lib/storage";
-import { donationClaimSchema } from "@/lib/validation/donation-claim";
+import { createCheckoutSession } from "@/lib/services/checkout";
+import { checkoutInputSchema } from "@/lib/validation/donations";
 
-// Redirect back to wherever the form was submitted from (the context-locked
-// /give/checkout keeps its ?student=/?project= this way), appending a status.
-function backTo(formData: FormData, status: string): never {
-  const base = String(formData.get("returnTo") || "/give/checkout");
-  const safe = base.startsWith("/give") ? base : "/give/checkout"; // never redirect off the give flow
-  redirect(`${safe}${safe.includes("?") ? "&" : "?"}${status}`);
+// Redirect back to the /give/checkout the form came from (keeps its ?student=/?project=),
+// appending a status. Never redirect off the give flow.
+function backTo(returnTo: string, status: string): never {
+  const base = returnTo.startsWith("/give") ? returnTo : "/give/checkout";
+  redirect(`${base}${base.includes("?") ? "&" : "?"}${status}`);
 }
 
-export async function submitClaimAction(formData: FormData) {
-  if (!(await checkRateLimit("give-claim", { max: 10, windowMs: 15 * 60 * 1000 }))) {
-    backTo(formData, "error=" + encodeURIComponent("Too many submissions. Please try again later."));
+/**
+ * Start a Stripe Checkout Session for a ONE-TIME public gift. Card data never touches
+ * our servers (hosted Checkout). Amount / designation / tribute / note / anonymity are
+ * validated server-side and passed in Checkout metadata; the LEDGER trusts only Stripe's
+ * reported amount (recorded by the webhook), never these inputs. Guest-friendly — no
+ * account required (Stripe collects the email on its hosted page). One-time only; this
+ * flow never creates a subscription.
+ */
+export async function startGiveCheckoutAction(formData: FormData) {
+  const returnTo = String(formData.get("returnTo") || "/give/checkout");
+  if (!(await checkRateLimit("give-checkout", { max: 15, windowMs: 15 * 60 * 1000 }))) {
+    backTo(returnTo, "error=" + encodeURIComponent("Too many attempts. Please try again in a few minutes."));
   }
 
-  // Validate the text fields FIRST so a bad form never leaves an orphaned tribute
-  // blob in storage (upload only happens once the rest of the claim is known-good).
   const dollars = Number(formData.get("amountDollars"));
-  const isAnonymous = formData.get("isAnonymous") === "on";
-  const parsed = donationClaimSchema.safeParse({
-    donorName: formData.get("donorName"),
-    donorEmail: formData.get("donorEmail") || "",
+  const parsed = checkoutInputSchema.safeParse({
     amount: Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN,
-    designationType: formData.get("designationType"),
+    currency: "usd",
+    designationType: String(formData.get("designationType") || "GENERAL"),
     studentId: formData.get("studentId") || undefined,
     projectId: formData.get("projectId") || undefined,
-    method: formData.get("method"),
-    reference: formData.get("reference") || undefined,
+    donorEmail: formData.get("donorEmail") || undefined,
+    isAnonymous: formData.get("isAnonymous") === "on",
     note: formData.get("note") || undefined,
     tributeType: formData.get("tributeType") || undefined,
     tributeName: formData.get("tributeName") || undefined,
     tributeMessage: formData.get("tributeMessage") || undefined,
-    isAnonymous,
+    tributePublic: formData.get("tributePublic") === "on",
   });
-  if (!parsed.success) backTo(formData, "error=" + encodeURIComponent(parsed.error.issues[0]?.message ?? "Please check the form"));
+  if (!parsed.success) backTo(returnTo, "error=" + encodeURIComponent(parsed.error.issues[0]?.message ?? "Please check the form"));
 
-  // Now (and only now) persist the optional tribute photo → object storage.
-  let tributeImageUrl: string | undefined;
-  const img = formData.get("tributeImage");
-  if (img instanceof File && img.size > 0) {
-    try {
-      tributeImageUrl = `/api/files/${await saveUpload("tributes", img.type, Buffer.from(await img.arrayBuffer()))}`;
-    } catch (e) {
-      if (e instanceof UploadRejectedError) backTo(formData, "error=" + encodeURIComponent(e.message));
-      throw e;
-    }
+  let url: string | null = null;
+  try {
+    const origin = process.env.AUTH_URL || "http://localhost:3000";
+    const back = returnTo.startsWith("/give") ? returnTo : "/give/checkout";
+    const urls = {
+      successUrl: `${origin}/give/thank-you?ref={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${origin}${back}${back.includes("?") ? "&" : "?"}canceled=1`,
+    };
+    url = (await createCheckoutSession(parsed.data, urls)).url;
+  } catch (e) {
+    backTo(returnTo, "error=" + encodeURIComponent(`Payment is temporarily unavailable: ${(e as Error).message}`));
   }
-
-  const { donationId } = await submitDonationClaim({ ...parsed.data, tributeImageUrl });
-
-  // Apply the public-wall opt-out to the resolved donor. (The shared claim service
-  // resolves/creates the Donor internally, so we set the flag here on the donor the
-  // gift landed on — whether newly created or reused.)
-  if (isAnonymous) {
-    const d = await prisma.donation.findUnique({ where: { id: donationId }, select: { donorId: true } });
-    if (d) await prisma.donor.update({ where: { id: d.donorId }, data: { isAnonymous: true } });
-  }
-
-  backTo(formData, "submitted=1");
+  if (url) redirect(url); // → Stripe's hosted Checkout page
+  backTo(returnTo, "error=" + encodeURIComponent("Could not start checkout. Please try again."));
 }
