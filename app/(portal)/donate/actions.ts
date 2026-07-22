@@ -1,17 +1,18 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createCheckoutSession, createSubscriptionCheckout } from "@/lib/services/checkout";
+import { createCheckoutSession } from "@/lib/services/checkout";
 import { checkoutInputSchema } from "@/lib/validation/donations";
 
 /**
- * Start a Stripe Checkout — one-time OR monthly (mode=subscription). The donor's
- * chosen dollar amount is converted to minor units and validated (USD) server-side.
- * Requires a real STRIPE_SECRET_KEY; without one, Stripe rejects and we surface an error.
+ * Start a ONE-TIME Stripe Checkout (mode=payment). Per the "one-time only" decision, no
+ * public path may start a Stripe subscription — this action never calls
+ * createSubscriptionCheckout. (The subscription service + webhook handlers remain intact
+ * for the manual-pledge model; they're just not reachable from a public donor flow.)
+ * The donor's dollar amount is converted to minor units and validated (USD) server-side.
  */
 export async function startCheckoutAction(formData: FormData) {
   const dollars = Number(formData.get("amountDollars"));
-  const recurring = formData.get("recurring") === "on";
   const parsed = checkoutInputSchema.safeParse({
     amount: Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN,
     currency: "usd",
@@ -27,10 +28,7 @@ export async function startCheckoutAction(formData: FormData) {
   try {
     const origin = process.env.AUTH_URL || "http://localhost:3000";
     const urls = { successUrl: `${origin}/donate/thank-you?ref={CHECKOUT_SESSION_ID}`, cancelUrl: `${origin}/donate` };
-    const session = recurring
-      ? await createSubscriptionCheckout(parsed.data, urls, "month")
-      : await createCheckoutSession(parsed.data, urls);
-    url = session.url;
+    url = (await createCheckoutSession(parsed.data, urls)).url;
   } catch (e) {
     redirect(`/donate?error=${encodeURIComponent(`Checkout unavailable: ${(e as Error).message}`)}`);
   }
