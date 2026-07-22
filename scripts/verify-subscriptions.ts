@@ -12,6 +12,7 @@
  */
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_bg_local";
 
+import { execSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 import Stripe from "stripe";
 import { adminCreateStudent } from "@/lib/services/accounts";
@@ -54,6 +55,15 @@ function subDeleted(id: string) {
 const countCycleDonations = () => prisma.donation.count({ where: { subscription: { stripeSubscriptionId: SUB } } });
 
 async function main() {
+  console.log("\nNo PUBLIC path can start a Stripe subscription (one-time only)");
+  // The subscription checkout builder + webhook handlers stay intact (load-bearing for
+  // the manual-pledge model), but NOTHING under app/ may call the subscription builder —
+  // so no donor flow can start a Stripe subscription. Guards the removal from regressing.
+  const subCallers = execSync("grep -rlE 'createSubscriptionCheckout[[:space:]]*\\(' app/ 2>/dev/null || true", { encoding: "utf8" }).trim();
+  check("no app/ route or action CALLS createSubscriptionCheckout", subCallers === "", subCallers ? `callers: ${subCallers.replace(/\n/g, ", ")}` : "");
+  const svcPresent = execSync("grep -rl 'export async function createSubscriptionCheckout' lib/ 2>/dev/null || true", { encoding: "utf8" }).trim();
+  check("createSubscriptionCheckout service still present (scaffolding retained)", svcPresent !== "");
+
   const admin = await prisma.user.findUniqueOrThrow({ where: { email: "admin@bridginggenerations.org" } });
   const current = await prisma.academicSession.findFirstOrThrow({ where: { isCurrent: true } });
   const student = await adminCreateStudent(admin.id, { firstName: "Tuli" });
