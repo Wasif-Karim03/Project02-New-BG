@@ -31,7 +31,9 @@ export async function createCheckoutSession(
       },
     ],
     customer_email: input.donorEmail,
-    metadata: designationMetadata(input),
+    // Designation + tribute + note + anonymity travel in metadata so the webhook can
+    // attribute them (Stripe caps each value at 500 chars; giftAttributionMetadata caps).
+    metadata: { ...designationMetadata(input), ...giftAttributionMetadata(input) },
     success_url: urls.successUrl,
     cancel_url: urls.cancelUrl,
   });
@@ -45,6 +47,22 @@ function designationMetadata(input: CheckoutInput): Record<string, string> {
     ...(input.projectId ? { projectId: input.projectId } : {}),
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
   };
+}
+
+/**
+ * Optional tribute / note / anonymity, added ONLY to the one-time session metadata so
+ * the webhook can attribute them. Only present values are included; each is capped to
+ * Stripe's 500-char metadata-value limit. The subscription checkout is left untouched.
+ */
+function giftAttributionMetadata(input: CheckoutInput): Record<string, string> {
+  const md: Record<string, string> = {};
+  if (input.isAnonymous) md.isAnonymous = "true";
+  if (input.note) md.note = input.note.slice(0, 500);
+  if (input.tributeType) md.tributeType = input.tributeType;
+  if (input.tributeName) md.tributeName = input.tributeName.slice(0, 500);
+  if (input.tributeMessage) md.tributeMessage = input.tributeMessage.slice(0, 500);
+  if (input.tributePublic) md.tributePublic = "true";
+  return md;
 }
 
 /**

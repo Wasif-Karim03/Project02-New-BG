@@ -54,7 +54,7 @@ export default async function GivePage({ searchParams }: { searchParams: SearchP
         <div className="mt-4 grid gap-3">
           <Link href={checkoutHref} className="group rounded-2xl border border-hairline bg-ground-2 p-5 transition-colors hover:border-accent">
             <div className="text-base font-semibold text-ink">Donate as a guest</div>
-            <p className="mt-1 text-sm text-ink-2">Give now without an account. We&apos;ll email your receipt. <span className="font-medium text-accent-2-text group-hover:underline">Continue →</span></p>
+            <p className="mt-1 text-sm text-ink-2">Pay securely by card — no account needed. Stripe emails your receipt. <span className="font-medium text-accent-2-text group-hover:underline">Continue →</span></p>
           </Link>
           <Link href={signupHref} className="group rounded-2xl border border-hairline bg-ground-2 p-5 transition-colors hover:border-accent">
             <div className="text-base font-semibold text-ink">Create a donor account</div>

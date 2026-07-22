@@ -18,6 +18,7 @@ process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_bg_local";
 import { PrismaClient } from "@prisma/client";
 import Stripe from "stripe";
 import { getGiftContext } from "@/lib/services/gift-context";
+import { LARGE_DONATION_THRESHOLD_CENTS, STRIPE_MIN_CENTS, checkoutInputSchema } from "@/lib/validation/donations";
 import { handleStripeWebhook } from "@/lib/webhooks/stripe-handler";
 
 const prisma = new PrismaClient();
@@ -94,6 +95,27 @@ async function main() {
   // Different event id, SAME payment intent → row-level guard blocks a 2nd row.
   const rRow = await deliver(checkoutEvent(`evt_${T}_1b`, { session: `${CS1}_b`, pi: PI1, amount: 5000, metadata: { designationType: "PROJECT", projectId: project.id } }));
   check("new event, same charge → no second donation (row-level)", (await prisma.donation.count({ where: { stripePaymentIntentId: PI1 } })) === 1, rRow.message);
+  // Task requirement: firing the SAME event THREE times yields exactly one Donation.
+  await deliver(checkoutEvent(`evt_${T}_1`, { session: CS1, pi: PI1, amount: 5000, metadata: { designationType: "PROJECT", projectId: project.id } }));
+  check("same event fired 3× total → still exactly ONE donation", (await prisma.donation.count({ where: { idempotencyKey: CS1 } })) === 1);
+
+  console.log("\nDesignation + tribute + note survive the round trip (Checkout metadata)");
+  const CS3 = `cs_${T}_3`, PI3 = `pi_${T}_3`;
+  await deliver(checkoutEvent(`evt_${T}_6`, { session: CS3, pi: PI3, amount: 2500, email: `trib-${T}@x.test`, name: "Trib Tara", metadata: { designationType: "PROJECT", projectId: project.id, note: "For the science lab", tributeType: "memory", tributeName: "Grandpa Joe", tributeMessage: "In loving memory", tributePublic: "true", isAnonymous: "true" } }));
+  const d3 = await donationByKey(CS3);
+  check("designation survives (PROJECT + projectId)", d3?.designationType === "PROJECT" && d3?.projectId === project.id);
+  check("tribute survives (type / name / message / public)", d3?.tributeType === "memory" && d3?.tributeName === "Grandpa Joe" && d3?.tributeMessage === "In loving memory" && d3?.tributePublic === true);
+  check("donor note survives", d3?.note === "For the science lab");
+  const d3Donor = d3 ? await prisma.donor.findUnique({ where: { id: d3.donorId } }) : null;
+  check("isAnonymous metadata → donor opted off the public wall", d3Donor?.isAnonymous === true);
+
+  console.log("\nAmount bounds enforced at the boundary (frozen money model — Agent E)");
+  const g = { designationType: "GENERAL" as const };
+  check("min: 49¢ ($0.49) rejected", !checkoutInputSchema.safeParse({ ...g, amount: 49 }).success);
+  check("min: 50¢ ($0.50, Stripe floor) accepted", checkoutInputSchema.safeParse({ ...g, amount: 50 }).success);
+  check("max: $100,000 accepted, $100,000.01 rejected", checkoutInputSchema.safeParse({ ...g, amount: 100_000_00 }).success && !checkoutInputSchema.safeParse({ ...g, amount: 100_000_01 }).success);
+  check("non-integer cents rejected (no floats anywhere)", !checkoutInputSchema.safeParse({ ...g, amount: 50.5 }).success);
+  check("STRIPE_MIN_CENTS = 50 and confirm threshold = $5,000", STRIPE_MIN_CENTS === 50 && LARGE_DONATION_THRESHOLD_CENTS === 500_000);
 
   console.log("\nSignature rejection");
   const badPayload = JSON.stringify(checkoutEvent(`evt_${T}_bad`, { session: `cs_${T}_bad`, pi: `pi_${T}_bad`, amount: 9999, metadata: { designationType: "GENERAL" } }));
@@ -128,7 +150,7 @@ async function main() {
 
   console.log(`\n${failures === 0 ? "✓ ALL STRIPE CHECKS PASSED" : `✗ ${failures} CHECK(S) FAILED`}`);
 
-  await cleanup([project.id], [verified.id], [CS1, CS2]);
+  await cleanup([project.id], [verified.id], [CS1, CS2, `cs_${T}_3`]);
 }
 
 async function cleanup(projectIds: string[], userIds: string[], keys: string[]) {

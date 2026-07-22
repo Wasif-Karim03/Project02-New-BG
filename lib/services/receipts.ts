@@ -9,8 +9,13 @@ import type { Db } from "@/lib/services/audit";
  *     the guard is in place now so backfilled rows never trigger automations).
  *   - only SUCCEEDED donations are receipted.
  * Idempotent: one receipt per donation (Receipt.donationId is @unique).
+ *
+ * opts.sendEmail (default true): Stripe donations pass `false` — Stripe emails the
+ * donor's receipt automatically (our sender domain isn't verified), so we record the
+ * Receipt ledger row but must NOT double-email. Offline/claim donations keep true.
  */
-export async function generateReceipt(db: Db, donation: Donation) {
+export async function generateReceipt(db: Db, donation: Donation, opts: { sendEmail?: boolean } = {}) {
+  const sendReceiptEmail = opts.sendEmail ?? true;
   if (donation.isHistorical) return null; // never for backfilled rows
   if (donation.status !== "SUCCEEDED") return null;
 
@@ -34,7 +39,8 @@ export async function generateReceipt(db: Db, donation: Donation) {
 
   // Email the receipt via the shared transport (console in dev, SMTP once
   // EMAIL_SERVER is set). Historical rows never reach here, so backfill stays silent.
-  if (donor?.email) {
+  // Skipped for Stripe donations — Stripe sends that receipt itself.
+  if (sendReceiptEmail && donor?.email) {
     await sendEmail({
       to: donor.email,
       subject: `Your Bridging Generations donation receipt ${receipt.receiptNumber}`,

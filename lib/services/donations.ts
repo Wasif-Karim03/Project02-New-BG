@@ -104,6 +104,12 @@ export async function recordStripeDonationFromCheckout(db: Db, data: StripeCheck
     isAnonymous: md.isAnonymous === "true", // public-wall opt-out carried in metadata
   });
 
+  // Optional tribute + donor note carried in Checkout metadata (validated + capped when
+  // the session was created). The tribute IMAGE is not part of Checkout (no upload step),
+  // so only the text tribute survives this path.
+  const note = md.note || undefined;
+  const tributeType = md.tributeType === "honor" || md.tributeType === "memory" ? md.tributeType : undefined;
+
   const donation = await db.donation.create({
     data: {
       donorId: donor.id,
@@ -122,6 +128,11 @@ export async function recordStripeDonationFromCheckout(db: Db, data: StripeCheck
       idempotencyKey: data.id,
       isHistorical: false,
       occurredAt: data.created ? new Date(data.created * 1000) : new Date(),
+      note,
+      tributeType,
+      tributeName: md.tributeName || undefined,
+      tributeMessage: md.tributeMessage || undefined,
+      tributePublic: md.tributePublic === "true",
     },
   });
 
@@ -133,7 +144,8 @@ export async function recordStripeDonationFromCheckout(db: Db, data: StripeCheck
     after: { amount, currency: "USD", status: "SUCCEEDED", source: "STRIPE" },
   });
 
-  await generateReceipt(db, donation);
+  // Ledger row only — Stripe sends the donor's email receipt automatically.
+  await generateReceipt(db, donation, { sendEmail: false });
   return donation;
 }
 
